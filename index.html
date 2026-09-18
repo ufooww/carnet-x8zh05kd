@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+
+<!-- ⚠️ LA POLITIQUE DE SÉCURITÉ DE CONTENU — à lire avant d'ajouter quoi que ce
+     soit à cette page.
+
+     Le carnet affiche des textes récoltés sur TikTok et Instagram. Si l'un
+     d'eux réussissait un jour à faire entrer du code dans la page — un champ
+     mal filtré, un script d'import moins soigneux —, ces quelques lignes sont
+     ce qui l'empêche de servir à quelque chose : il ne pourrait ni se charger
+     depuis un autre serveur, ni renvoyer quoi que ce soit ailleurs.
+
+     `default-src 'none'` : tout est refusé, puis on rouvre au cas par cas.
+       · script-src 'self'  — aucun script en ligne, aucun script distant. C'est
+                              pour cela que le gestionnaire d'erreurs a été
+                              sorti dans `js/erreurs.js`.
+       · style-src 'self'   — aucune feuille distante, et **aucun attribut
+                              `style=`** : les trois qui traînaient dans la page
+                              sont passés en classes le 17/09.
+       · img-src            — les images du carnet, les tuiles de l'archive
+                              locale (`blob:`) et le fond de carte japonais.
+       · connect-src 'self' — les archives de tuiles, rien d'autre : le carnet
+                              ne peut rien envoyer vers l'extérieur.
+       · base-uri, form-action 'none' — il n'y a aucun formulaire, et personne
+                              ne doit pouvoir réécrire la base des liens.
+
+     `frame-ancestors` n'y figure pas : il est ignoré dans une balise `meta`, il
+     ne vaut qu'en en-tête HTTP — que GitHub Pages ne permet pas de poser. Voir
+     l'audit du 17/09 pour ce que cela laisse ouvert (peu de chose : le carnet
+     n'a ni session ni bouton dangereux). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data: https://tile.openstreetmap.jp; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+
+<!-- Ce que les sites tiers apprennent quand on clique un lien du carnet : rien.
+     Sans cette ligne, chaque ouverture d'une vidéo TikTok ou d'une adresse dans
+     Google Maps leur livre l'URL exacte du carnet — qui n'est pas un secret,
+     mais qui n'a aucune raison de circuler chez eux. -->
+<!-- Le carnet est fait pour six personnes, pas pour le web. `noindex`
+     empêche les moteurs de l'indexer, `robots.txt` leur dit de ne pas
+     même le parcourir. Le lien reste ouvert à qui l'a reçu — c'est ce
+     qu'on veut — mais il ne se trouve pas. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carnet Japon — Tokyo · Osaka · Kyoto</title>
+<meta name="description" content="Carnet d'adresses privé, consultable sans réseau.">
+<meta name="theme-color" content="#faf8f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16150f" media="(prefers-color-scheme: dark)">
+
+<!-- Comment le lien se présente quand on l'envoie au groupe. Sans ces quatre
+     lignes il arrive nu dans la conversation, et personne ne l'ouvre.
+     ⚠️ Deux retouches à faire au moment de publier sur GitHub Pages, et elles
+     sont les seules que la publication réclame :
+       1. `og:image` doit devenir une adresse absolue — le chemin relatif
+          ci-dessous, la plupart des messageries le résolvent, mais la spec
+          Open Graph demande une URL complète et certaines ne suivent pas ;
+       2. **`og:url` n'existe pas encore** : la ligne est prête juste en
+          dessous, en commentaire, faute de connaître l'adresse du dépôt.
+          Sans elle, un lien repartagé depuis une conversation perd sa page
+          d'origine. -->
+<!-- <meta property="og:url" content="https://<compte>.github.io/<depot>/"> -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Carnet Japon — Tokyo · Osaka · Kyoto">
+<meta property="og:description" content="Carnet d'adresses privé, consultable sans réseau.">
+<meta property="og:image" content="img/apercu.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="img/icone-192.png">
+<link rel="apple-touch-icon" href="img/icone-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="css/style.css">
+<!-- Premier script de la page : il attrape les erreurs des suivants, y
+     compris leur non-chargement. Sorti d'`index.html` le 17/09/2026 pour que
+     la politique de sécurité puisse interdire les scripts en ligne. -->
+<script src="js/erreurs.js"></script>
+</head>
+<body>
+
+<!-- Le frontispice a été retiré le 14/09/2026, le jour même où l'écran
+     d'accueil est né. Il disait exactement ce que l'accueil dit maintenant —
+     le titre japonais, le compte d'adresses, les trois villes, le mois — mais
+     il le disait en bloquant l'écran 1,9 s, une fois par session. Deux pages
+     de garde valent moins qu'une, et celle qui reste est celle où l'on peut
+     agir. Son information la plus forte, la provenance des adresses, a été
+     reportée sous le compte à rebours.
+     Le CSS de `.frontispice` reste en place : voir la note en tête de sa
+     section dans style.css. -->
+
+<header class="tete">
+  <h1>Carnet Japon <span class="jp">日本の手帳</span></h1>
+  <p class="sous" id="sousTitre">Tokyo · Osaka · Kyoto — octobre 2026</p>
+</header>
+
+<!-- `aria-controls` relie chaque onglet à son panneau, et chaque panneau porte
+     `role="tabpanel"` : sans ce couple, un lecteur d'écran annonce quatre
+     boutons sans jamais dire ce qu'ils ouvrent. Le `tabindex` est mobile — seul
+     l'onglet courant est atteignable à la tabulation, les flèches parcourent
+     les autres. C'est la convention, et c'est ce qui évite quatre arrêts
+     inutiles avant d'entrer dans la liste. -->
+<nav class="onglets" role="tablist" aria-label="Sections du carnet">
+  <button role="tab" id="ongletAccueil"  aria-controls="paneAccueil"  data-pane="paneAccueil"  aria-selected="true"  tabindex="0">Accueil</button>
+  <button role="tab" id="ongletCarte"    aria-controls="paneCarte"    data-pane="paneCarte"    aria-selected="false" tabindex="-1">Carte</button>
+  <button role="tab" id="ongletListe"    aria-controls="paneListe"    data-pane="paneListe"    aria-selected="false" tabindex="-1">Adresses <span class="n" id="nListe"></span></button>
+  <!-- « Utile » est le cinquième onglet, et la barre défile : elle le prévoyait
+       déjà, fondu de bord compris. Il est placé avant « Avant de partir »
+       parce qu'il sert PENDANT le voyage — urgences, phrases, argent — quand
+       l'autre ne sert qu'avant de partir. -->
+  <button role="tab" id="ongletUtile" aria-controls="paneUtile" data-pane="paneUtile" aria-selected="false" tabindex="-1">Utile</button>
+  <button role="tab" id="ongletConseils" aria-controls="paneConseils" data-pane="paneConseils" aria-selected="false" tabindex="-1">Avant de partir <span class="n" id="nConseils"></span></button>
+  <!-- « À identifier » a quitté la barre le 14/09 : à cinq, les onglets
+       débordaient de 375 px — « Avant de partir » se lisait « Avant de parti »
+       et le cinquième était hors de vue. Ce sont 35 vidéos que Paco n'a pas
+       encore identifiées, un outil de travail dont les cinq autres voyageurs
+       n'ont rien à faire : il s'ouvre depuis le pied de l'accueil. -->
+  <button role="tab" id="ongletTrancher" aria-controls="paneTrancher" data-pane="paneTrancher" aria-selected="false" tabindex="-1" hidden>À identifier <span class="n" id="nTrancher"></span></button>
+</nav>
+
+<main>
+
+  <!-- ---------------- accueil ----------------
+       Le carnet ouvrait sur une carte de Tokyo : un outil, pas une invitation.
+       Cet écran répond à « qu'est-ce que je fais maintenant ? » — il compte les
+       jours, montre ce qu'on a gardé, et propose trois entrées dans les 544.
+       Volontairement sans cartes ni ombres : les blocs se séparent au filet,
+       comme les fiches. Voir « Conception - accueil et envies (14-09).md ». -->
+  <section class="pane" id="paneAccueil" role="tabpanel" aria-labelledby="ongletAccueil" data-actif>
+    <div class="defile">
+      <div class="accueil">
+
+        <div class="depart" id="depart">
+          <!-- La constellation : les 409 adresses situées, posées sur la
+               courbure de la Terre à leur place exacte, celles qu'on a gardées
+               en vermillon. Le canvas est décoratif au sens strict — tout ce
+               qu'il montre est disponible en texte et dans les autres onglets —
+               mais il se manœuvre au doigt et au clavier, d'où le `tabindex`
+               et le libellé. Voir « Conception - la constellation (14-09).md ». -->
+          <!-- Le cadre existe pour que le sélecteur de ville puisse se poser
+               SUR le ciel plutôt qu'en dessous. Un bouton qui commande une
+               image se met sur l'image : c'est ce qui rend le lien évident, et
+               ce qui donne au verre dépoli quelque chose à laisser voir. -->
+          <div class="ciel-cadre">
+            <div class="ciel">
+              <canvas id="ciel" tabindex="0" role="img"
+                      aria-label="Les adresses du carnet dans la ville choisie, vues en trois dimensions. Faites-la tourner avec les flèches."></canvas>
+              <p class="ciel-aide" id="cielAide" aria-hidden="true">tournez-la</p>
+            </div>
+            <div class="ciel-villes puces" id="cielVilles" role="group"
+                 aria-label="Ville affichée dans la constellation"></div>
+          </div>
+          <!-- La même phrase qu'en plein écran, et pour la même raison : une
+               nuée de points ne se commente pas toute seule. Elle y était
+               depuis le début, l'accueil ne l'avait pas — d'où le « on ne
+               comprend pas trop » rapporté le 16/09. -->
+          <p class="ciel-legende">
+            Chaque point est une adresse du carnet, à sa place réelle.
+            <span>Les plus hautes reviennent dans plusieurs vidéos.</span>
+          </p>
+          <p class="ciel-plus">
+            <button type="button" class="lien" id="cielGrand">Voir en grand</button>
+          </p>
+          <p class="d-compte"><span id="departJours">—</span> <span class="d-mot" id="departMot">jours</span></p>
+          <p class="d-dates" id="departDates">2 → 23 octobre 2026</p>
+          <!-- Reprise du frontispice supprimé : c'est ce qui donne au carnet
+               son poids — les adresses n'ont pas été copiées d'un guide. -->
+          <p class="d-src" id="departSource"></p>
+        </div>
+
+        <section class="bloc" id="blocEnvies">
+          <h2>Mes envies <span class="n" id="nEnvies"></span></h2>
+          <div id="enviesCorps"></div>
+        </section>
+
+        <!-- Le programme. Il vient juste après les envies, et c'est leur
+             suite logique : on garde une adresse, puis on lui donne un jour.
+             Rempli par js/jours.js. -->
+        <section class="bloc" id="blocProgramme">
+          <h2>Le programme <span class="n" id="nProgramme"></span></h2>
+          <div id="programmeCorps"></div>
+        </section>
+
+        <!-- Le partage entre les six téléphones : du texte à copier-coller
+             dans la conversation du groupe. Voir js/partage.js pour ce que
+             l'import peut faire — et surtout pour ce qu'il ne peut pas. -->
+        <section class="bloc" id="blocPartage">
+          <h2>Partager avec le groupe <span class="u-jp">共有</span></h2>
+          <p class="bloc-note">Vos envies et votre programme restent sur ce
+            téléphone. Pour les montrer aux autres, copiez-les et collez-les
+            dans la conversation ; pour recevoir celui de quelqu'un, collez son
+            texte ici.</p>
+          <div class="u-actions">
+            <button type="button" class="bouton plein" id="partCopier">Copier mon carnet</button>
+            <button type="button" class="bouton" id="partColler">Recevoir un carnet</button>
+          </div>
+          <div id="partZone" hidden>
+            <label class="u-champ"><span>Collez ici le texte reçu</span>
+              <textarea id="partTexte" rows="4" placeholder="CARNET JAPON v1…"></textarea></label>
+            <div class="u-actions">
+              <button type="button" class="bouton plein" id="partLire">Ajouter à mon carnet</button>
+              <button type="button" class="bouton" id="partAnnuler">Annuler</button>
+            </div>
+            <p class="bloc-note" id="partAvis" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <!-- La boîte à liens. Rien n'est envoyé d'ici : le carnet n'a pas de
+             serveur et sa CSP le lui interdit. Les liens s'empilent dans le
+             téléphone, et « Envoyer à Paco » produit un texte à coller dans la
+             conversation — le même chemin que le partage des envies. -->
+        <section class="bloc" id="blocLiens">
+          <h2>Une adresse à ajouter ? <span class="u-jp">追加</span>
+            <span class="n" id="liensCompte"></span></h2>
+          <p class="bloc-note">Vous avez vu un endroit sur TikTok ou Instagram ?
+            Collez le lien ici. Paco le regarde, et l'adresse entre au carnet
+            avec sa source — vous la retrouverez sur la carte.</p>
+          <label class="u-champ"><span>Le lien</span>
+            <input type="url" id="liensChamp" inputmode="url" autocomplete="off"
+                   spellcheck="false" placeholder="https://www.tiktok.com/…"></label>
+          <label class="u-champ"><span>Votre prénom, pour que Paco sache qui demande</span>
+            <input type="text" id="liensQui" maxlength="40" autocomplete="given-name"
+                   placeholder="facultatif"></label>
+          <div class="u-actions">
+            <button type="button" class="bouton plein" id="liensAjouter">Ajouter à ma liste</button>
+          </div>
+          <div id="liensListe"></div>
+          <div class="u-actions">
+            <button type="button" class="bouton plein" id="liensEnvoyer" disabled>Envoyer à Paco</button>
+            <button type="button" class="bouton" id="liensVider" disabled>Vider</button>
+          </div>
+          <p class="bloc-note" id="liensAvis" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="bloc">
+          <h2>Par où commencer</h2>
+          <div class="portes" id="portes"></div>
+        </section>
+
+        <section class="bloc">
+          <h2>Au hasard</h2>
+          <p class="bloc-note">Un carnet se feuillette. Celui-ci en compte
+            <span id="hasardTotal">565</span> — en voici une.</p>
+          <div id="hasardCorps"></div>
+          <button type="button" class="bouton" id="hasardTirer">Une autre</button>
+        </section>
+
+        <p class="accueil-pied">
+          <button type="button" class="lien" id="versTrancher">
+            <span id="nTrancherLien">24</span> vidéos à identifier</button>
+          <button type="button" class="lien" id="diag">Diagnostic technique</button>
+          <span class="version" id="versionCarnet"></span>
+        </p>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- carte ---------------- -->
+  <section class="pane carte" id="paneCarte" role="tabpanel" aria-labelledby="ongletCarte">
+    <div class="filtres">
+      <div class="puces defilante" id="filtresCarte"></div>
+    </div>
+    <div class="filtre-actif" id="filtreActif" hidden>
+      <span id="filtreActifTexte"></span>
+      <button type="button" id="filtreActifVider">tout afficher</button>
+    </div>
+    <div id="carte"></div>
+    <div class="message-carte" id="messageCarte" hidden>
+      <p><b>Chargement du fond de carte…</b></p>
+      <p>108 Mo, une seule fois. Les épingles sont déjà à leur place ; il manque
+      les rues. Ensuite la carte s'ouvre instantanément et fonctionne même sans
+      réseau.</p>
+    </div>
+    <div class="autour" id="autour">
+      <h2>Autour de moi</h2>
+      <ol id="autourListe"></ol>
+    </div>
+    <div class="tiroir" id="tiroir">
+      <button class="fermer" id="tiroirFermer" aria-label="Fermer">×</button>
+      <div id="tiroirCorps"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- adresses ---------------- -->
+  <section class="pane" id="paneListe" role="tabpanel" aria-labelledby="ongletListe">
+    <div class="filtres">
+      <div class="recherche" id="rechercheBoite">
+        <!-- Un vrai label, masqué à l'œil mais lu par la synthèse vocale : le
+             placeholder disparaît dès qu'on tape, et avec lui la seule
+             indication de ce que fait le champ. -->
+        <label class="hors-vue" for="recherche">Chercher dans le carnet</label>
+        <span class="loupe" aria-hidden="true">⌕</span>
+        <input type="search" id="recherche" placeholder="Chercher — nom, quartier, marque, plat…"
+               autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="vider" id="viderRecherche" aria-label="Vider la recherche">×</button>
+      </div>
+      <div class="puces" id="filtresVille"></div>
+      <div class="puces espace-dessus" id="filtresCat"></div>
+      <div class="puces cuisines" id="filtresCuisine"></div>
+    </div>
+    <div class="defile">
+      <!-- Annoncé à voix haute quand le nombre change : sans cela, on tape une
+           recherche et rien ne dit combien d'adresses restent. -->
+      <p class="compte" id="compte" role="status" aria-live="polite"></p>
+      <ul class="liste" id="liste"></ul>
+    </div>
+  </section>
+
+  <!-- ---------------- utile ----------------
+       Ce qu'on ouvre quand quelque chose ne va pas : l'adresse de son
+       logement en japonais, les numéros d'urgence, le convertisseur, les
+       phrases à montrer, et les fiches séisme et typhon. Rempli par
+       js/utile.js à partir de js/utile-donnees.js. Tout y fonctionne sans
+       réseau — c'est la règle de cet onglet. -->
+  <section class="pane" id="paneUtile" role="tabpanel" aria-labelledby="ongletUtile">
+    <div class="defile">
+      <div class="accueil" id="utile"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- avant de partir ---------------- -->
+  <section class="pane" id="paneConseils" role="tabpanel" aria-labelledby="ongletConseils">
+    <div class="defile">
+      <!-- La liste de départ vient AVANT les 67 fiches de conseils : c'est ce
+           qu'on ouvre cet onglet pour vérifier dans les deux semaines qui
+           précèdent, le reste se lit une fois. -->
+      <div id="avantDePartir"></div>
+      <div class="conseils-liste" id="conseils"></div>
+    </div>
+  </section>
+
+  <!-- ---------------- à identifier ---------------- -->
+  <section class="pane" id="paneTrancher" role="tabpanel" aria-labelledby="ongletTrancher">
+    <!-- Son onglet est masqué : sans ce retour, on entre dans ce panneau et
+         plus aucun onglet n'est marqué actif — on y resterait enfermé. -->
+    <div class="pane-tete">
+      <button type="button" class="retour" id="trancherRetour">← Accueil</button>
+      <h2>Vidéos à identifier</h2>
+    </div>
+    <div class="defile">
+      <p class="bloc-note bloc-note-marge">Des vidéos qui montrent
+        un lieu sans jamais le nommer. Si vous reconnaissez un endroit, dites-le
+        à Paco.</p>
+      <div class="grille" id="trancher"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Le panneau qu'on tend à quelqu'un. Voir css/style.css, section « montrer ».
+     C'est une fenêtre modale : elle recouvre tout, donc elle le déclare, garde
+     le focus à l'intérieur et le rend au bouton d'origine en se fermant. Sans
+     cela, la tabulation continue de parcourir le carnet caché derrière. -->
+<div class="montrer" id="montrer" role="dialog" aria-modal="true"
+     aria-labelledby="montrerJp" hidden>
+  <p class="m-jp" id="montrerJp"></p>
+  <p class="m-nom" id="montrerNom"></p>
+  <p class="m-lieu" id="montrerLieu"></p>
+  <button type="button" class="m-fermer" id="montrerFermer">Fermer</button>
+</div>
+
+<!-- La constellation en grand. 290 px ne suffisent pas à 263 adresses : ici les
+     amas se séparent, les quartiers se nomment, et l'on peut chercher le sien.
+     Modal comme « Montrer » — même raison, il recouvre tout. -->
+<div class="grand-ciel" id="grandCiel" role="dialog" aria-modal="true"
+     aria-label="La constellation des adresses, en grand" hidden>
+  <div class="gc-tete">
+    <div class="puces" id="gcVilles" role="group" aria-label="Ville affichée"></div>
+    <button type="button" class="gc-fermer" id="gcFermer" aria-label="Fermer">×</button>
+  </div>
+  <canvas id="gcToile" tabindex="0" role="img"
+          aria-label="Les adresses de la ville, en trois dimensions. Les flèches la font tourner."></canvas>
+  <p class="gc-pied" id="gcPied">Chaque point est une adresse.
+    Les plus hautes reviennent dans plusieurs vidéos.</p>
+</div>
+
+<!-- Le pied ne dit qu'une chose, mais il la dit vraiment : si le carnet tiendra
+     sans réseau. Il reste escamoté tant qu'il n'a rien à annoncer. -->
+<div class="pied" id="pied" role="status" aria-live="polite">
+  <span id="piedTexte"></span>
+  <span class="jauge" id="piedJaugeBoite" hidden><i id="piedJauge"></i></span>
+  <button class="bouton" id="piedAction" hidden></button>
+  <button class="pied-fermer" id="piedFermer" aria-label="Masquer ce message">×</button>
+</div>
+
+<!-- Les filtres de sûreté d'abord : tout le reste s'en sert pour
+     écrire dans la page. -->
+<script src="js/sur.js"></script>
+<script src="js/donnees.js"></script>
+<script src="js/pmtiles.js"></script>
+<script src="js/groupes.js"></script>
+<script src="js/aurore.js"></script>
+<script src="js/constellation.js"></script>
+<script src="js/icones.js"></script>
+<script src="js/carte.js"></script>
+<script src="js/utile-donnees.js"></script>
+<script src="js/utile.js"></script>
+<script src="js/jours.js"></script>
+<script src="js/partage.js"></script>
+<script src="js/liens.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

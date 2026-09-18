@@ -1,0 +1,1828 @@
+/* Carnet Japon — feuille de style.
+ *
+ * Écrite pour être lue dans la rue : contrastes francs, cibles tactiles larges,
+ * et un thème sombre qui suit le réglage du téléphone. Rien d'animé qui puisse
+ * retarder l'affichage d'une adresse.
+ */
+
+:root {
+  /* Papier et encre. Le fond tire vers l'ivoire plutôt que vers le gris :
+     un carnet qu'on a dans la poche, pas une interface. */
+  --fond: #f7f4ed;        --fond: oklch(0.965 0.011 88);
+  --fond-carte: #fffdf8;  --fond-carte: oklch(0.988 0.007 90);
+  --fond-doux: #ede8dd;   --fond-doux: oklch(0.929 0.014 86);
+  --trait: #e0d9cb;       --trait: oklch(0.882 0.017 84);
+  --trait-fort: #c6bdab;  --trait-fort: oklch(0.798 0.024 82);
+  --texte: #1f1d19;       --texte: oklch(0.222 0.007 70);
+  --texte-doux: #635b50;  --texte-doux: oklch(0.452 0.016 72);
+  /* 4,63:1 sur le fond clair. Le gris d'origine tombait à 3,45:1 : en plein
+     soleil, dans une rue de Tokyo, le compte et les mentions disparaissaient. */
+  --texte-faible: #766d61; --texte-faible: oklch(0.539 0.018 76);
+  /* Le vermillon du sceau. Réservé à ce qui est « ici, maintenant » : onglet
+     en cours, épingle ouverte, ma position. Nulle part ailleurs — un accent
+     qui sert à tout ne signale plus rien. */
+  --accent: #c4351d;      --accent: oklch(0.547 0.176 33);
+  --accent-doux: #f8e6e1; --accent-doux: oklch(0.930 0.026 40);
+  /* Le même vermillon, un cran plus sombre, pour le texte posé SUR
+     `--accent-doux`. Mesuré le 14/09 : l'accent nominal n'y donne que 4,31:1,
+     sous le seuil de 4,5 — le bouton « Gardée » était le seul endroit du
+     carnet à ne pas passer. À 0.50 de clarté il monte à 5,3:1. */
+  --accent-fonce: #b02f1a; --accent-fonce: oklch(0.500 0.176 33);
+  --ombre: 0 1px 2px rgba(34, 31, 28, .06), 0 4px 16px rgba(34, 31, 28, .05);
+  --ombre-forte: 0 8px 40px rgba(34, 31, 28, .18);
+  --rayon: 12px;
+  --barre: 58px;
+  --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+          "Hiragino Sans", "Noto Sans JP", sans-serif;
+  /* Aucune police web : hors connexion au Japon, seules les polices du
+     système répondent. Celles d'iOS et d'Android couvrent les kanji. */
+  --jp: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
+        "Yu Gothic", Meiryo, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #16150f;
+    --fond-carte: #201e17;
+    --fond-doux: #2a271e;
+    --trait: #35312a;
+    --trait-fort: #4a453c;
+    --texte: #f0ebe2;
+    --texte-doux: #b7ae9f;
+    --texte-faible: #8b8274;
+    --accent: #f2664a;      --accent: oklch(0.681 0.165 34);
+    --accent-doux: #3a2320;
+    /* En thème sombre, le texte de l'accent est clair sur un fond sombre :
+       il donne déjà 4,74:1, il n'y a rien à foncer. */
+    --accent-fonce: #f2664a; --accent-fonce: oklch(0.681 0.165 34);
+    --ombre: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 16px rgba(0, 0, 0, .3);
+    --ombre-forte: 0 8px 40px rgba(0, 0, 0, .6);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--fond); color: var(--texte);
+  font-family: var(--sans);
+  font-size: 15px; line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+/* `100dvh` plutôt que la hauteur héritée : sur iOS la barre d'adresse se
+   rétracte au défilement, et une hauteur figée laisse la dernière ligne du
+   carnet sous le bord de l'écran. `dvh` suit la hauteur réellement visible. */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
+
+body { display: flex; flex-direction: column; }
+
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--accent); }
+
+/* Ce qui se lit à voix haute sans se voir — le label de la recherche. Pas
+   `display: none`, qui l'ôterait aussi aux synthèses vocales. */
+.hors-vue {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+/* Le mot seul en dernière ligne d'un titre, et les fins de paragraphe en
+   escalier : deux réglages, et le texte cesse d'avoir l'air posé au hasard. */
+h1, h2, h3, h4 { text-wrap: balance; }
+p, .fiche .extrait, .conseil dd { text-wrap: pretty; }
+
+/* ---------- en-tête ---------------------------------------------------- */
+
+/* L'en-tête, les onglets et les filtres mangeaient 400 px des 812 d'un
+   téléphone : il restait une fiche et demie à l'écran pour un carnet de 544
+   adresses. Titre et compte tiennent désormais sur une seule ligne. */
+header.tete {
+  flex: 0 0 auto;
+  padding: calc(9px + env(safe-area-inset-top)) 44px 8px 16px;
+  border-bottom: 1px solid var(--trait);
+  background: var(--fond-carte);
+  display: flex; align-items: baseline; gap: 9px;
+}
+header.tete h1 {
+  margin: 0; font-family: var(--serif);
+  font-size: 18px; font-weight: 600; letter-spacing: -.01em;
+  white-space: nowrap;
+}
+header.tete h1 .jp {
+  font-family: var(--jp); color: var(--texte-faible);
+  font-size: 13px; margin-left: 7px; font-weight: 400;
+}
+header.tete .sous {
+  margin: 0; font-size: 12px; color: var(--texte-faible);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sur un iPhone SE, « 544 adresses · 409 situées » se faisait couper à
+   « 544 adresses · 409… » : le titre japonais mangeait la place. Il est
+   décoratif — l'accueil porte 東京・大阪・京都 en grand — alors que l'écart
+   entre 544 et 409 dit combien d'adresses n'ont pas de position exacte.
+   L'information passe avant l'ornement. */
+@media (max-width: 400px) {
+  header.tete h1 .jp { display: none; }
+}
+
+/* ---------- onglets ------------------------------------------------------ */
+
+nav.onglets {
+  flex: 0 0 auto; display: flex; gap: 2px;
+  padding: 0 8px; background: var(--fond-carte);
+  border-bottom: 1px solid var(--trait);
+  overflow-x: auto; scrollbar-width: none;
+}
+nav.onglets::-webkit-scrollbar { display: none; }
+/* Même fondu que pour les filtres : « À trancher » est coupé net sur un
+   téléphone, et rien ne dit qu'un onglet se cache à droite. */
+nav.onglets[data-droite] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);
+          mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);
+}
+nav.onglets[data-gauche] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 30px);
+          mask-image: linear-gradient(to right, transparent 0, #000 30px);
+}
+nav.onglets[data-gauche][data-droite] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 30px,
+                        #000 calc(100% - 30px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 30px,
+                        #000 calc(100% - 30px), transparent 100%);
+}
+nav.onglets button {
+  flex: 0 0 auto; border: 0; background: none; cursor: pointer;
+  padding: 11px 13px 9px; font-size: 14px; color: var(--texte-doux);
+  border-bottom: 2.5px solid transparent; white-space: nowrap;
+}
+nav.onglets button[aria-selected="true"] {
+  color: var(--texte); font-weight: 600; border-bottom-color: var(--accent);
+}
+nav.onglets button .n {
+  font-size: 11px; color: var(--texte-faible);
+  margin-left: 5px; font-variant-numeric: tabular-nums;
+}
+
+/* Sur un écran de 375 px, les quatre onglets réclament 417 px : « Avant de
+   partir » se lit « Avant de parti » et le fondu invite à un défilement
+   horizontal que personne ne devine dans une barre d'onglets.
+   Les compteurs sont ce qu'on peut retirer sans rien perdre : « 544 » est déjà
+   dans l'en-tête, et « 67 » se découvre en ouvrant l'onglet. Le nom complet
+   d'une section, lui, ne se devine pas. */
+@media (max-width: 430px) {
+  nav.onglets button { padding-left: 11px; padding-right: 11px; }
+  nav.onglets button .n { display: none; }
+}
+
+/* ---------- panneaux ----------------------------------------------------- */
+
+/* `overflow: hidden` contient la translation d'entrée des panneaux : sans
+   lui, les 14 px du glissement élargissent le document pendant l'animation et
+   ouvrent un défilement horizontal de 14 px sur le téléphone. */
+main { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+.pane { position: absolute; inset: 0; display: none; flex-direction: column; }
+.pane[data-actif] { display: flex; }
+.defile { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* ---------- barre de recherche et filtres -------------------------------- */
+
+.filtres {
+  flex: 0 0 auto; padding: 10px 12px; background: var(--fond-carte);
+  border-bottom: 1px solid var(--trait);
+}
+.recherche { position: relative; margin-bottom: 9px; }
+.recherche input {
+  width: 100%; padding: 9px 32px 9px 32px; border-radius: 999px;
+  border: 1px solid var(--trait-fort); background: var(--fond);
+  font-size: 15px; outline: none;
+}
+.recherche input:focus { border-color: var(--accent); }
+.recherche .loupe {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--texte-faible); pointer-events: none; font-size: 13px;
+}
+.recherche .vider {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  border: 0; background: none; color: var(--texte-faible);
+  cursor: pointer; padding: 4px 8px; font-size: 15px; display: none;
+}
+.recherche.plein .vider { display: block; }
+
+.puces { display: flex; gap: 6px; flex-wrap: wrap; }
+.puces.defilante { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.puces.defilante::-webkit-scrollbar { display: none; }
+
+/* Le fondu au bord dit qu'il reste des filtres hors de l'écran. Sans lui, la
+   barre paraît complète : sur un téléphone elle s'arrête après « Visiter » et
+   l'on additionne les catégories visibles en croyant les avoir toutes — d'où
+   un total inférieur à celui annoncé en tête de page (constaté le 14/09/2026).
+   Les attributs sont posés par app.js au défilement ; sans JavaScript la barre
+   reste utilisable, simplement sans le fondu. */
+.puces.defilante[data-droite] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+          mask-image: linear-gradient(to right, #000 calc(100% - 34px), transparent 100%);
+}
+.puces.defilante[data-gauche] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 34px);
+          mask-image: linear-gradient(to right, transparent 0, #000 34px);
+}
+.puces.defilante[data-gauche][data-droite] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 34px,
+                        #000 calc(100% - 34px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 34px,
+                        #000 calc(100% - 34px), transparent 100%);
+}
+.puce {
+  flex: 0 0 auto; border: 1px solid var(--trait-fort); background: var(--fond);
+  border-radius: 999px; padding: 5px 11px; font-size: 13px;
+  cursor: pointer; color: var(--texte-doux); white-space: nowrap;
+}
+.puce[aria-pressed="true"] {
+  background: var(--texte); border-color: var(--texte);
+  color: var(--fond-carte); font-weight: 500;
+}
+.puce .n { opacity: .55; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.puces.cuisines { margin-top: 6px; }
+.puces.cuisines .puce { font-size: 12.5px; padding: 4px 9px; }
+.puces.cuisines .puce[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+
+/* ---------- liste d'adresses --------------------------------------------- */
+
+.compte {
+  padding: 8px 14px 2px; font-size: 12px; color: var(--texte-faible);
+  font-variant-numeric: tabular-nums;
+}
+ul.liste { list-style: none; margin: 0; padding: 0 0 90px; }
+
+/* Des lignes de carnet, pas des cartes empilées. Une carte par adresse —
+   même rayon, même ombre, même bordure — est la signature de n'importe quel
+   tableau de bord ; un filet sépare aussi bien et rend trois adresses de plus
+   à chaque écran. Le fond ne s'allume que sur la fiche ouverte. */
+li.fiche {
+  background: none; border: 0; border-top: 1px solid var(--trait);
+  border-radius: 0; margin: 0; box-shadow: none;
+}
+li.fiche:first-child { border-top: 0; }
+li.fiche[data-ouvert] {
+  background: var(--fond-carte);
+  border-left: 3px solid var(--c, var(--trait-fort));
+}
+li.fiche > button.entete {
+  width: 100%; text-align: left; border: 0; background: none;
+  padding: 11px 14px; cursor: pointer; display: block;
+}
+/* Le nom japonais est l'information la plus opérationnelle du carnet : c'est
+   lui qu'on montre à un chauffeur ou à un passant. Il était en gris pâle, à
+   moitié coupé au bout de la ligne latine. Il a désormais sa ligne et sa
+   force propres. 400 des 544 fiches en portent un. */
+.fiche .ligne1 { display: block; }
+.fiche .nom { font-weight: 600; font-size: 15.5px; letter-spacing: -.005em; }
+.fiche .nom-jp {
+  display: block; font-family: var(--jp); font-size: 14px;
+  color: var(--texte-doux); margin-top: 1px; line-height: 1.35;
+}
+.fiche .ligne2 {
+  margin-top: 3px; font-size: 12.5px; color: var(--texte-doux);
+  display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+}
+.fiche .pastille {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--trait-fort); flex: 0 0 auto;
+}
+.fiche .extrait {
+  margin-top: 6px; font-size: 13.5px; color: var(--texte-doux);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fiche .etiquettes { margin-top: 7px; display: flex; gap: 5px; flex-wrap: wrap; }
+.eti {
+  font-size: 11px; padding: 2px 7px; border-radius: 999px;
+  background: var(--fond-doux); color: var(--texte-doux);
+}
+.eti.marque { background: var(--accent-doux); color: var(--accent); font-weight: 500; }
+.eti.approx { background: transparent; border: 1px dashed var(--trait-fort); }
+/* Hors du parcours : l'adresse est bonne, c'est le voyage qui ne passe pas
+   par là. Le trait plein la distingue du « à vérifier » en pointillés, qui
+   dit l'inverse — une adresse dont on n'est pas sûr. */
+.eti.hors {
+  background: transparent; border: 1px solid var(--trait-fort);
+  color: var(--texte-doux); font-style: italic;
+}
+
+/* le détail, déplié */
+.fiche .detail { display: none; padding: 0 14px 14px; }
+li.fiche[data-ouvert] .detail { display: block; }
+.detail .note { font-size: 14px; line-height: 1.62; margin: 2px 0 10px; }
+.detail dl {
+  margin: 0 0 10px; display: grid; grid-template-columns: auto 1fr;
+  gap: 3px 12px; font-size: 13px;
+}
+.detail dt { color: var(--texte-faible); }
+.detail dd { margin: 0; }
+.detail .actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.bouton {
+  border: 1px solid var(--trait-fort); background: var(--fond);
+  border-radius: 8px; padding: 7px 12px; font-size: 13px;
+  cursor: pointer; text-decoration: none; color: var(--texte);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.bouton:hover { border-color: var(--texte-faible); }
+.bouton.plein { background: var(--texte); color: var(--fond-carte); border-color: var(--texte); }
+.videos { margin-top: 9px; display: flex; flex-direction: column; gap: 4px; }
+.videos a { font-size: 12.5px; }
+
+/* L'état vide est le premier écran que l'on rencontre quand quelque chose
+   cloche : il doit nommer ce qui filtre et offrir d'en sortir, pas se contenter
+   de constater. */
+.vide {
+  padding: 40px 24px; text-align: center; color: var(--texte-faible); font-size: 14px;
+}
+/* Même extension de zone que pour `#diag` : le × du tiroir se dessine à 30 px
+   mais se touche sur 44. */
+.tiroir .fermer { position: relative; }
+.tiroir .fermer::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%);
+}
+
+.vide p { margin: 0 0 12px; }
+.vide b { color: var(--texte); font-weight: 600; }
+.vide .eti { margin: 0 3px; }
+.vide .bouton { margin-top: 4px; }
+
+/* ---------- catégories : une couleur par famille -------------------------- */
+
+/* Les mêmes couleurs servent la liste et la carte. Les épingles portaient
+   `jp-cat-…`, sans aucune règle en face : elles étaient grises depuis le
+   premier jour, et c'est ce que Paco a vu — un point qui ne dit pas ce qu'on
+   va toucher. Les deux familles de sélecteurs partagent désormais la valeur,
+   pour qu'une couleur changée le soit partout. */
+.cat-manger, .jp-cat-manger { --c: #c2410c; }
+.cat-shopping , .jp-cat-shopping { --c: #7c3aed; }
+.cat-visiter  , .jp-cat-visiter  { --c: #0369a1; }
+.cat-sortir   , .jp-cat-sortir   { --c: #be123c; }
+.cat-cafe     , .jp-cat-cafe     { --c: #a16207; }
+.cat-dormir   , .jp-cat-dormir   { --c: #0f766e; }
+.cat-bonplan  , .jp-cat-bonplan  { --c: #4d7c0f; }
+.cat-excursion, .jp-cat-excursion{ --c: #4338ca; }
+.fiche .pastille { background: var(--c, var(--trait-fort)); }
+
+/* ---------- carte --------------------------------------------------------- */
+
+.pane.carte { position: absolute; inset: 0; }
+#carte { flex: 1 1 auto; min-height: 0; position: relative; }
+
+.jp-carte { position: absolute; inset: 0; overflow: hidden;
+            background: var(--fond-doux); touch-action: none; cursor: grab; }
+.jp-carte.jp-glisse { cursor: grabbing; }
+
+/* Les trois calques ne sont plus transformés : chaque élément porte sa
+   position à l'écran, recalculée à chaque rendu. C'est ce qui garantit que les
+   épingles ne peuvent pas dériver par rapport au fond. */
+.jp-tuiles, .jp-epingles, .jp-position { position: absolute; inset: 0; }
+.jp-epingles, .jp-position { pointer-events: none; }
+.jp-epingles > * { pointer-events: auto; }
+
+.jp-tuile {
+  position: absolute; user-select: none;
+  background-repeat: no-repeat; background-size: 100% 100%;
+  /* Un demi-pixel de débord : sans lui, l'arrondi du navigateur laisse une
+     ligne claire entre deux tuiles voisines. */
+  outline: 0.5px solid transparent; outline-offset: -0.5px;
+}
+@media (prefers-color-scheme: dark) {
+  /* Le fond japonais n'existe qu'en version claire : on l'assombrit plutôt que
+     d'éblouir quelqu'un qui marche de nuit. Réglage plus doux qu'une inversion
+     franche — la rotation de teinte rend l'eau bleue et les parcs verts au lieu
+     de les faire virer au mauve et au brun. */
+  .jp-tuile { filter: invert(.92) hue-rotate(185deg) saturate(.85) brightness(.95) contrast(1.05); }
+}
+
+.jp-epingle {
+  position: absolute; border: 0; background: none; padding: 0; cursor: pointer;
+  width: 22px; height: 28px; transform: translate(-50%, -100%);
+}
+/* La goutte s'élargit de 15 à 21 px : en dessous, la silhouette qu'elle
+   contient n'est plus qu'une tache. C'est le seul endroit du carnet où l'on
+   agrandit quelque chose — et c'est pour rendre lisible, pas pour occuper. */
+.jp-epingle .jp-pastille {
+  display: flex; align-items: center; justify-content: center;
+  width: 21px; height: 21px; margin: 0 auto;
+  border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  background: var(--c, #555); border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+}
+/* La goutte est tournée de -45° pour que sa pointe vise l'adresse. L'icône,
+   elle, doit rester droite : elle reprend donc les 45° en sens inverse. */
+.jp-epingle .jp-icone {
+  width: 12px; height: 12px; color: #fff;
+  transform: rotate(45deg);
+  /* Une silhouette blanche sur un fond clair — le jaune des bons plans —
+     s'évanouit. Une ombre portée d'un pixel la retient partout. */
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, .45));
+}
+.jp-epingle.jp-approx .jp-pastille { opacity: .55; border-style: dashed; }
+.jp-epingle.jp-active .jp-pastille {
+  background: var(--accent); transform: rotate(-45deg) scale(1.35);
+}
+
+/* Les gros disques blancs cerclés sont la signature de n'importe quelle carte
+   en ligne. Ici : plus petits, encre pleine, un liseré de papier fin au lieu
+   d'un bord blanc épais — ils comptent des adresses, ils n'ont pas à écraser
+   les rues qu'on est en train de lire. */
+.jp-groupe {
+  position: absolute; cursor: pointer;
+  border: 1.5px solid var(--fond-carte);
+  min-width: 25px; height: 25px; padding: 0 6px; border-radius: 999px;
+  background: var(--texte); color: var(--fond-carte);
+  font-size: 12px; font-weight: 600; transform: translate(-50%, -50%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .3); font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+.jp-groupe.jp-gros { min-width: 32px; height: 32px; font-size: 13px; }
+
+/* Les contrôles de la carte se posent depuis le bas — et le bas bouge.
+ *
+ * Deux choses peuvent s'y glisser : l'encoche du téléphone, et le pied de page
+ * quand il a un message à passer. Tant que le pied ne s'affichait jamais, le
+ * problème n'existait pas ; depuis qu'il fonctionne (14/09), il enterrait le
+ * bouton « ma position » — mesuré : le bouton à 748 px, le pied à 756 px.
+ * C'est-à-dire le bouton le plus utile du carnet dans une rue de Tokyo, rendu
+ * intouchable par un message d'information.
+ *
+ * `--marge-bas` porte cette hauteur variable, et les deux contrôles s'y
+ * accrochent au lieu de la recalculer chacun de leur côté. */
+:root { --marge-bas: env(safe-area-inset-bottom, 0px); }
+body:has(.pied[data-actif]) { --marge-bas: 62px; }
+
+.jp-zoom { position: absolute; right: 10px; display: flex;
+           bottom: calc(74px + var(--marge-bas));
+           flex-direction: column; z-index: 3;
+           transition: bottom .2s; }
+.jp-zoom button, .jp-moi {
+  width: 38px; height: 38px; border: 1px solid var(--trait-fort);
+  background: var(--fond-carte); color: var(--texte); cursor: pointer;
+  font-size: 17px; line-height: 1; box-shadow: var(--ombre);
+}
+.jp-zoom button:first-child { border-radius: 9px 9px 0 0; }
+.jp-zoom button:last-child { border-radius: 0 0 9px 9px; border-top: 0; }
+.jp-moi { position: absolute; right: 10px; border-radius: 9px; z-index: 3;
+          bottom: calc(26px + var(--marge-bas)); transition: bottom .2s; }
+.jp-moi.jp-actif { background: var(--accent); color: #fff; border-color: var(--accent); }
+.jp-moi.jp-attente { opacity: .6; }
+.jp-moi.jp-refuse { opacity: .45; }
+
+.jp-ici {
+  position: absolute; width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px;
+  border-radius: 50%; background: #1d70e0; border: 2.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+}
+.jp-precision {
+  position: absolute; border-radius: 50%;
+  background: rgba(29, 112, 224, .13); border: 1px solid rgba(29, 112, 224, .3);
+}
+/* L'attribution OpenStreetMap est une obligation de licence : elle doit rester
+   lisible, donc elle remonte elle aussi quand le pied occupe le bas. */
+.jp-credit {
+  position: absolute; left: 0; bottom: var(--marge-bas); font-size: 10.5px;
+  background: rgba(255, 255, 255, .82); padding: 2px 6px; color: #333;
+  transition: bottom .2s;
+}
+@media (prefers-color-scheme: dark) {
+  .jp-credit { background: rgba(0, 0, 0, .6); color: #ccc; }
+  .jp-credit a { color: #9cf; }
+}
+
+/* la fiche qui monte depuis le bas de la carte */
+.tiroir {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+  background: var(--fond-carte); border-top: 1px solid var(--trait);
+  border-radius: 16px 16px 0 0; box-shadow: var(--ombre-forte);
+  max-height: 62%; overflow-y: auto;
+  /* Aucun rembourrage en bas : c'est la barre d'actions, collée au bas et
+     dernier élément du tiroir, qui le porte. Le partager entre les deux
+     laissait une bande où le texte réapparaissait sous les boutons. */
+  padding: 14px 16px 0;
+  transform: translateY(101%); transition: transform .22s ease;
+}
+.tiroir[data-ouvert] { transform: translateY(0); }
+
+/* Les actions restent sous la main.
+ *
+ * Le tiroir plafonne à 62 % de la carte et son contenu dépasse souvent : sur
+ * une fiche à longue note, « Garder », « Montrer » et « Google Maps »
+ * tombaient à 980 px sur un écran de 812 — il fallait deviner qu'on pouvait
+ * défiler à l'intérieur du tiroir pour les atteindre. On vient d'appuyer sur
+ * une épingle : c'est le moment où l'on veut agir, pas lire.
+ *
+ * Collées en bas de la zone qui défile, elles sont visibles dès l'ouverture et
+ * le restent. Le dégradé au-dessus dit que le texte continue dessous. */
+.tiroir .actions {
+  position: sticky; bottom: 0; z-index: 2;
+  margin: 12px -16px 0;
+  /* Le rembourrage bas du tiroir est ici : la barre est le dernier élément,
+     donc c'est elle qui tient l'écart avec le bord — et avec le pied de page
+     quand il s'affiche, via `--marge-bas`. */
+  padding: 10px 16px calc(14px + var(--marge-bas));
+  background: var(--fond-carte);
+  border-top: 1px solid var(--trait);
+}
+.tiroir .actions::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -19px; height: 18px;
+  background: linear-gradient(to top, var(--fond-carte), transparent);
+  pointer-events: none;
+}
+/* Les vidéos passent au-dessus des actions : ce sont des références, pas des
+   gestes, et elles n'ont pas à s'intercaler entre le texte et les boutons. */
+.tiroir .videos { margin-bottom: 4px; }
+.tiroir .fermer {
+  position: absolute; right: 10px; top: 10px; border: 0; background: var(--fond-doux);
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 15px;
+}
+.tiroir h3 { margin: 0 34px 2px 0; font-size: 17px; font-family: var(--serif); }
+
+/* panneau « autour de moi » */
+.autour {
+  position: absolute; left: 10px; right: 58px; bottom: 26px; z-index: 4;
+  background: var(--fond-carte); border: 1px solid var(--trait);
+  border-radius: var(--rayon); box-shadow: var(--ombre); padding: 9px 11px;
+  max-height: 40%; overflow-y: auto; display: none;
+}
+.autour[data-actif] { display: block; }
+.autour h4 { margin: 0 0 6px; font-size: 12px; color: var(--texte-faible);
+             text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.autour ol { margin: 0; padding: 0; list-style: none; }
+.autour li { padding: 4px 0; border-top: 1px solid var(--trait); font-size: 13px;
+             display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
+.autour li:first-child { border-top: 0; }
+.autour .d { color: var(--texte-faible); font-variant-numeric: tabular-nums;
+             flex: 0 0 auto; font-size: 12px; }
+
+/* ---------- conseils ------------------------------------------------------ */
+
+/* Même traitement que les adresses : des lignes, pas des cartes. Les trois
+   onglets doivent se ressembler, sinon le carnet a deux visages. */
+.conseil {
+  background: none; border: 0; border-top: 1px solid var(--trait);
+  border-radius: 0; margin: 0; box-shadow: none;
+}
+.conseil:first-child { border-top: 0; }
+.conseil[data-ouvert] { background: var(--fond-carte); }
+.conseil > button {
+  width: 100%; text-align: left; border: 0; background: none;
+  padding: 12px 15px; cursor: pointer;
+}
+.conseil h3 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; }
+/* Était en capitales espacées et en rouge. Les capitales espacées datent une
+   page à elles seules, et l'accent est réservé à ce qui demande une action —
+   pas à nommer une rubrique. */
+.conseil .cat {
+  display: block; font-size: 12px; color: var(--texte-faible);
+  font-weight: 500; margin-bottom: 2px;
+}
+.conseil .corps { display: none; padding: 0 15px 14px; }
+.conseil[data-ouvert] .corps { display: block; }
+.conseil .corps p.chapo { font-size: 13.5px; color: var(--texte-doux); margin: 0 0 10px; }
+.conseil .corps dl { margin: 0; }
+.conseil .corps dt { font-weight: 600; font-size: 13.5px; margin-top: 9px; }
+.conseil .corps dd { margin: 2px 0 0; font-size: 13.5px; color: var(--texte-doux); }
+
+/* ---------- à trancher et galerie ----------------------------------------- */
+
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+          gap: 9px; padding: 10px 10px 90px; }
+/* Ici la carte garde un sens — une image et sa légende forment un bloc — mais
+   l'ombre et le gros rayon la rangeaient dans le même kit que tout le reste. */
+.vignette {
+  background: var(--fond-carte); border: 1px solid var(--trait);
+  border-radius: 5px; overflow: hidden; box-shadow: none;
+}
+.vignette img { width: 100%; aspect-ratio: 9 / 14; object-fit: cover; display: block;
+                background: var(--fond-doux); }
+.vignette .txt { padding: 8px 9px 10px; }
+.vignette .num { font-size: 11px; color: var(--texte-faible); font-weight: 600; }
+.vignette .sujet { font-size: 12.5px; line-height: 1.35; margin-top: 2px; }
+.vignette .q { font-size: 12px; color: var(--texte-doux); margin-top: 5px; font-weight: 500; }
+.vignette .raison {
+  font-size: 11.5px; line-height: 1.35; color: var(--texte-faible);
+  margin-top: 5px;
+}
+.vignette a { font-size: 12px; }
+
+/* ---------- barre du bas : le hors-connexion ------------------------------ */
+
+.pied {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--fond-carte); border-top: 1px solid var(--trait);
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; transform: translateY(101%); transition: transform .2s;
+}
+.pied[data-actif] { transform: translateY(0); }
+/* Le pied est fixe : quand il monte, il recouvre la fin de ce qu'on lit — le
+   lien de diagnostic au bas de l'accueil disparaissait dessous. On rend la
+   hauteur aux zones défilantes plutôt que de laisser le message manger la
+   dernière ligne. */
+body:has(.pied[data-actif]) .defile { padding-bottom: 64px; }
+/* Le texte porte l'information : il prend la place, et revient à la ligne
+   plutôt que de se faire couper. La jauge ne s'étire que lorsqu'elle existe. */
+.pied #piedTexte { flex: 1 1 auto; line-height: 1.35; text-wrap: pretty; }
+.pied .jauge { flex: 0 1 90px; height: 5px; background: var(--fond-doux);
+               border-radius: 3px; overflow: hidden; }
+.pied .jauge[hidden] { display: none; }
+.pied .jauge i { display: block; height: 100%; width: 0; background: var(--accent);
+                 transition: width .2s; }
+.pied .bouton[hidden] { display: none; }
+.pied-fermer {
+  flex: 0 0 auto; position: relative;
+  border: 0; background: none; color: var(--texte-faible);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 2px;
+}
+.pied-fermer[hidden] { display: none; }
+.pied-fermer::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%);
+}
+
+@media (min-width: 760px) {
+  ul.liste, .grille { max-width: 880px; margin: 0 auto; }
+  .conseils-liste { max-width: 760px; margin: 0 auto; padding: 0 0 60px; }
+  .autour { right: auto; width: 320px; }
+}
+
+/* Les alertes : ce qui peut gâcher une visite — billet nominatif, adresse
+   rapportée par un commentaire plutôt que par la vidéo elle-même. */
+.fiche .alerte {
+  display: block; margin-top: 6px; font-size: 12.5px;
+  color: var(--accent); line-height: 1.4;
+}
+.alerte.forte {
+  background: var(--accent-doux); border-left: 3px solid var(--accent);
+  padding: 8px 10px; border-radius: 0 6px 6px 0; margin: 0 0 10px;
+  font-size: 13px; color: var(--texte);
+}
+.alerte b { font-weight: 600; }
+
+/* Fiche dépliée : l'alerte est reprise en encadré dans le détail, la répéter
+   au-dessus ferait doublon. */
+li.fiche[data-ouvert] .entete .alerte { display: none; }
+
+/* Une vidéo dont TikTok ne sert pas la couverture : on garde le rythme de la
+   grille plutôt que de laisser un trou. */
+.vignette .sansimage {
+  aspect-ratio: 9 / 14; background: var(--fond-doux);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--texte-faible); font-size: 11.5px;
+}
+
+
+/* Message affiché tant que le fond de carte n'est pas installé. Sans lui, on
+   voit des épingles flotter sur du vide sans comprendre pourquoi — et il n'y a
+   pas de fond de secours : OpenStreetMap refuse les requêtes directes. */
+.message-carte {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 6; display: none; width: min(340px, 84%);
+  background: var(--fond-carte); border: 1px solid var(--trait);
+  border-radius: var(--rayon); box-shadow: var(--ombre-forte);
+  padding: 16px 18px; font-size: 13.5px; line-height: 1.5;
+}
+.message-carte[data-actif] { display: block; }
+.message-carte p { margin: 0 0 8px; color: var(--texte-doux); }
+.message-carte p:first-child { color: var(--texte); }
+.message-carte p.fin { margin-bottom: 0; color: var(--texte); }
+
+
+/* Bouton de diagnostic — discret, mais atteignable depuis un téléphone où la
+   console du navigateur n'est pas consultable. */
+header.tete { position: relative; }
+/* Le bouton `?` a quitté l'en-tête pour le pied de l'accueil : c'est un outil
+   de mise au point, il n'avait pas à occuper un coin permanent d'un carnet de
+   voyage. Son ancienne règle — `position: absolute`, 26 px imposés — le
+   ramenait par la force dans le coin de l'écran, par-dessus l'accueil. Il est
+   désormais habillé par `.lien`, plus bas. */
+
+
+/* Rappel du filtre en cours, posé sur la carte. Sans lui, une recherche faite
+   dans l'onglet Adresses laisse la carte presque vide sans explication. */
+.filtre-actif {
+  /* Dans le flux, entre les filtres et la carte : en superposition il
+     recouvrait les puces de catégorie. */
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+  background: var(--accent-doux); border-bottom: 1px solid var(--trait);
+  padding: 7px 12px; font-size: 12.5px; color: var(--texte);
+}
+.filtre-actif[hidden] { display: none; }
+.filtre-actif span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filtre-actif button {
+  flex: 0 0 auto; border: 0; background: var(--fond-doux); cursor: pointer;
+  border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--texte-doux);
+}
+.filtre-actif button:hover { color: var(--texte); }
+
+/* Message d'échec dans le panneau « autour de moi ». Il remplace la liste des
+   adresses proches quand la localisation n'a pas pu aboutir : c'est le seul
+   endroit de l'écran où l'on regarde après avoir tapé « ma position ». */
+#autourListe li.avis {
+  display: block; padding: 10px 12px; line-height: 1.5;
+  color: var(--texte-doux); font-size: 13.5px; cursor: default;
+}
+#autourListe li.avis b { color: var(--texte); font-weight: 600; }
+
+
+/* ---------- « montrer » : l'écran qu'on tend à quelqu'un ------------------
+ *
+ * Le seul endroit où cette page hausse la voix. Un carnet d'adresses japonais
+ * consulté sur place sert aussi à être MONTRÉ — à un chauffeur de taxi, à un
+ * passant, au comptoir d'une gare. Le nom en kanji fait alors tout le travail,
+ * et il doit se lire à bout de bras.
+ *
+ * Le panneau reste clair même quand le téléphone est en thème sombre : on le
+ * tend de nuit, à quelqu'un qui a une seconde pour lire. C'est aussi pour ça
+ * qu'il ne porte ni note, ni horaires, ni bouton — rien que le nom.
+ */
+.montrer {
+  position: fixed; inset: 0; z-index: 60;
+  background: #fffdf8; color: #1f1d19;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 22px calc(22px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+.montrer[hidden] { display: none; }
+.montrer .m-jp {
+  font-family: var(--jp); font-size: clamp(34px, 11vw, 62px);
+  line-height: 1.25; font-weight: 600; margin: 0;
+  overflow-wrap: anywhere;
+}
+.montrer .m-nom {
+  font-size: clamp(15px, 4.4vw, 20px); color: #635b50;
+  margin: 18px 0 0; font-weight: 500;
+}
+.montrer .m-lieu {
+  font-family: var(--jp); font-size: clamp(15px, 4.4vw, 20px);
+  color: #635b50; margin: 5px 0 0;
+}
+.montrer .m-fermer {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  border: 1px solid #c6bdab; background: none; color: #635b50;
+  border-radius: 999px; padding: 9px 22px; font-size: 14px; cursor: pointer;
+}
+
+
+/* ---------- les filtres se replient quand on descend ---------------------
+ *
+ * Recherche et trois rangées de puces occupaient 220 px : sur un téléphone,
+ * deux adresses tenaient à l'écran. Les replier au défilement les rend
+ * gratuits pendant la lecture, et un geste vers le haut les ramène — le
+ * réflexe est déjà celui de toutes les applications de liste.
+ *
+ * On replie sur la hauteur plutôt qu'en retirant l'élément du flux : la barre
+ * reste dans l'ordre de tabulation et le lecteur d'écran continue de la voir.
+ */
+.filtres {
+  overflow: hidden;
+  transition: max-height .22s ease, padding .22s ease, opacity .18s ease;
+  max-height: 340px;
+}
+.pane[data-replie] .filtres {
+  max-height: 0; padding-top: 0; padding-bottom: 0;
+  opacity: 0; pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Le focus clavier était invisible : la barre de recherche coupait son
+   contour (`outline: none`) et rien ne le remplaçait ailleurs. Sur un
+   téléphone ça ne se voit pas, sur un ordinateur on navigue à l'aveugle. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.recherche input:focus-visible { outline-offset: 0; }
+
+
+/* ---------- frontispice : la page de garde du carnet ---------------------
+ *
+ * ⚠️ RETIRÉ DU HTML LE 14/09/2026, le jour où l'écran d'accueil est né : les
+ * deux disaient la même chose — titre japonais, compte d'adresses, trois
+ * villes, mois — mais celui-ci le disait en bloquant l'écran 1,9 s. Le style
+ * est gardé intact : remettre le bloc `.frontispice` dans index.html et
+ * rappeler `ouvrirFrontispice(LIEUX.length)` suffit à le faire revenir.
+ *
+ * Ce qu'il disait, à l'origine :
+ * Le seul moment où le site hausse la voix. Il dit ce que la carte ne peut
+ * pas dire : que ces 544 adresses ont été relevées une par une sur 368 vidéos
+ * et 200 publications. Un carnet a une page de garde ; une application de
+ * cartographie n'en a pas.
+ *
+ * Contrainte qui commande tout le reste : cet écran ne doit JAMAIS retarder
+ * quelqu'un qui cherche une adresse dans la rue. D'où trois règles — une fois
+ * par session, n'importe quel geste le saute, et il s'efface seul en 1,9 s.
+ */
+.frontispice {
+  position: fixed; inset: 0; z-index: 80;
+  background: var(--fond); color: var(--texte);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0;
+  padding: 24px; text-align: center;
+  animation: f-paraitre .5s ease both;
+}
+.frontispice[hidden] { display: none; }
+.frontispice[data-sort] { animation: f-sortir .42s ease both; }
+
+.frontispice .f-jp {
+  font-family: var(--jp); font-size: clamp(30px, 9vw, 46px);
+  font-weight: 600; margin: 0; letter-spacing: .06em;
+  animation: f-monter .6s .05s ease both;
+}
+/* Le chiffre porte seul : « adresses » à la même taille le faisait casser sur
+   deux lignes et lui volait sa force. Le mot passe dessous, en légende. */
+.frontispice .f-compte {
+  font-family: var(--serif); font-size: clamp(14px, 4.2vw, 18px);
+  color: var(--texte-doux); font-weight: 400; margin: 20px 0 0;
+  line-height: 1.2; letter-spacing: .02em;
+  animation: f-monter .6s .16s ease both;
+}
+.frontispice .f-compte span {
+  display: block; font-size: clamp(58px, 19vw, 92px);
+  font-weight: 600; letter-spacing: -.03em; line-height: .95;
+  color: var(--texte); margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.frontispice .f-src {
+  font-size: 13.5px; color: var(--texte-doux); margin: 10px 0 0;
+  max-width: 24ch; line-height: 1.5;
+  animation: f-monter .6s .26s ease both;
+}
+/* Le filet sépare ce que contient le carnet de l'endroit où il emmène. Il
+   encode cette bascule ; sans elle il n'aurait rien à faire là. */
+.frontispice .f-villes {
+  font-family: var(--jp); font-size: clamp(15px, 4.6vw, 19px);
+  color: var(--texte); margin: 26px 0 0; letter-spacing: .1em;
+  padding-top: 20px; border-top: 1px solid var(--trait-fort);
+  animation: f-monter .6s .36s ease both;
+}
+.frontispice .f-date {
+  font-size: 12.5px; color: var(--texte-faible); margin: 5px 0 0;
+  letter-spacing: .02em;
+  animation: f-monter .6s .44s ease both;
+}
+
+@keyframes f-paraitre { from { opacity: 0; } to { opacity: 1; } }
+@keyframes f-sortir   { to { opacity: 0; } }
+@keyframes f-monter {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- passage d'un onglet à l'autre --------------------------------
+ *
+ * Le panneau entre du côté d'où il vient — l'ordre des onglets devient
+ * sensible au doigt plutôt que seulement visible. Opacité et translation
+ * seules : ce sont les deux propriétés que le navigateur compose sans
+ * recalculer la page, et le panneau de la carte porte 544 épingles.
+ */
+.pane[data-actif] { animation: pane-entre .2s ease both; }
+@keyframes pane-entre {
+  from { opacity: 0; transform: translateX(var(--dx, 14px)); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Le kanji des catégories. Il ne redouble pas le mot français : c'est celui
+   qu'on lit sur les enseignes et les devantures — 食 sur un restaurant, 茶
+   sur un salon de thé. Discret par défaut, il s'éclaire avec la puce active. */
+.puce .k {
+  font-family: var(--jp); font-size: 12px; margin-right: 5px;
+  color: var(--texte-faible); font-weight: 400;
+}
+.puce[aria-pressed="true"] .k { color: inherit; opacity: .75; }
+
+
+/* ---------- l'accueil ------------------------------------------------------
+ *
+ * Le carnet ouvrait sur une carte de Tokyo : un outil, pas une invitation.
+ * Cet écran répond à « qu'est-ce que je fais maintenant ? ».
+ *
+ * La règle qui tient tout : **aucune carte, aucune ombre, aucun coin arrondi
+ * de bloc.** Un écran d'accueil est le premier endroit où le kit SaaS
+ * s'installe — quatre rectangles blancs à rayon 12 et ombre douce, et la page
+ * ressemble à n'importe quel tableau de bord. Ici les blocs se séparent par un
+ * filet et du blanc, comme les fiches du carnet.
+ */
+
+.accueil { padding: 0 0 40px; }
+
+/* Le compte à rebours. Le seul endroit de l'accueil où la page hausse un peu
+   la voix — et elle le fait par la taille du chiffre, pas par une couleur. */
+.depart {
+  padding: 30px 18px 26px; text-align: center;
+  border-bottom: 1px solid var(--trait);
+}
+.depart .d-compte {
+  margin: 0; font-family: var(--serif);
+  font-size: 15px; color: var(--texte-doux); line-height: 1.25;
+}
+.depart .d-compte span:first-child {
+  display: block; font-size: clamp(46px, 15vw, 68px);
+  font-weight: 600; letter-spacing: -.03em; line-height: 1;
+  color: var(--texte); font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}
+.depart .d-villes {
+  font-family: var(--jp); font-size: 17px; letter-spacing: .12em;
+  color: var(--texte); margin: 16px 0 0;
+}
+.depart .d-dates {
+  margin: 5px 0 0; font-size: 12.5px; color: var(--texte-faible);
+  font-variant-numeric: tabular-nums;
+}
+/* La provenance, héritée du frontispice retiré. Discrète, mais c'est elle qui
+   dit que ces adresses ont été relevées et non recopiées d'un guide. */
+.depart .d-src {
+  margin: 14px auto 0; max-width: 30ch;
+  font-size: 12px; line-height: 1.45; color: var(--texte-faible);
+}
+
+.bloc { padding: 20px 16px; border-bottom: 1px solid var(--trait); }
+.bloc h2 {
+  margin: 0 0 12px; font-family: var(--serif);
+  font-size: 17px; font-weight: 600; letter-spacing: -.01em;
+}
+.bloc h2 .n {
+  font-family: var(--sans); font-size: 13px; font-weight: 400;
+  color: var(--texte-faible); margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.bloc-note { margin: -6px 0 12px; font-size: 13px; color: var(--texte-doux); }
+.bloc .invite { margin: 0 0 12px; font-size: 13.5px; color: var(--texte-doux); }
+.bloc .invite b { color: var(--texte); }
+
+/* Une adresse, en vignette : le nom, où c'est, et de quoi décider. */
+.v-lieu {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 12px 0; border-top: 1px solid var(--trait);
+}
+.v-lieu:first-child { border-top: 0; }
+.v-ouvrir {
+  flex: 1 1 auto; min-width: 0; display: block; text-align: left;
+  border: 0; background: none; padding: 0; cursor: pointer;
+}
+.v-nom { display: block; font-size: 15px; font-weight: 600; line-height: 1.3; }
+.v-jp {
+  display: block; font-family: var(--jp); font-size: 13.5px;
+  color: var(--texte-doux); margin-top: 1px;
+}
+.v-lieu2 {
+  display: block; font-size: 12.5px; color: var(--texte-faible); margin-top: 4px;
+}
+.v-lieu2 .pastille { margin-right: 5px; }
+/* Trois lignes de note : de quoi reconnaître l'adresse sans ouvrir la fiche,
+   et pas une de plus — l'accueil n'est pas la liste. */
+.v-note {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; margin-top: 6px;
+  font-size: 12.5px; line-height: 1.45; color: var(--texte-doux);
+}
+
+/* Les trois portes. Le kanji sert de repère visuel, pas de décor : il donne à
+   chaque porte une silhouette qu'on reconnaît avant d'avoir lu. */
+.portes { display: flex; flex-direction: column; gap: 0; }
+.porte {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  padding: 13px 2px; border: 0; border-top: 1px solid var(--trait);
+  background: none; text-align: left; cursor: pointer;
+}
+.porte:first-child { border-top: 0; }
+.porte .p-jp {
+  flex: 0 0 auto; width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--jp); font-size: 19px; color: var(--texte);
+  border: 1px solid var(--trait-fort); border-radius: 50%;
+}
+.porte .p-txt { min-width: 0; }
+.porte .p-titre { display: block; font-size: 15px; font-weight: 600; }
+.porte .p-sous {
+  display: block; font-size: 12.5px; color: var(--texte-faible); margin-top: 1px;
+}
+.porte:active { background: var(--fond-doux); }
+
+.accueil-pied { padding: 18px 16px 0; margin: 0; text-align: center; }
+.lien {
+  border: 0; background: none; padding: 6px 10px; cursor: pointer;
+  font-size: 12.5px; color: var(--texte-faible); text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- garder une adresse --------------------------------------------
+ *
+ * La marque est un **signet plié**, pas un cœur : on ne « like » pas une
+ * adresse, on corne la page d'un carnet. Vide au repos, pleine une fois gardée
+ * — la forme change, pas seulement la couleur, pour que l'état reste lisible
+ * sans distinguer les teintes.
+ */
+.envie {
+  flex: 0 0 auto; position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--trait-fort); border-radius: 999px;
+  background: var(--fond-carte); color: var(--texte-doux);
+  padding: 7px 9px; font-size: 12.5px; cursor: pointer;
+  transition: color .15s, border-color .15s, background-color .15s;
+}
+.envie.avec-texte { padding: 7px 12px 7px 10px; }
+.envie .e-marque {
+  width: 11px; height: 14px; display: block;
+  background: currentColor;
+  /* Le signet : un rectangle dont le bas est échancré en V. */
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+  opacity: .32; transition: opacity .15s;
+}
+.envie[aria-pressed="true"] {
+  color: var(--accent-fonce); border-color: var(--accent);
+  background: var(--accent-doux);
+}
+.envie[aria-pressed="true"] .e-marque { opacity: 1; }
+/* La zone touchée fait 44 px sans que la pastille grossisse. */
+.envie::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  min-width: 44px; min-height: 44px; width: 100%; height: 100%;
+  transform: translate(-50%, -50%);
+}
+.e-marque.en-ligne {
+  display: inline-block; vertical-align: -2px;
+  width: 9px; height: 12px; background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+
+/* Dans la liste, la fiche et son signet cohabitent sur une ligne. */
+.fiche { position: relative; }
+.fiche > .envie {
+  position: absolute; top: 10px; right: 0;
+  border-color: transparent; background: none; padding: 6px;
+}
+.fiche > .envie[aria-pressed="true"] { background: none; border-color: transparent; }
+/* La place du signet, pour qu'il ne chevauche jamais le nom.
+   Le sélecteur reprend exactement celui de la règle d'origine
+   (`li.fiche > button.entete`, spécificité 0-2-2) : écrit plus court, il
+   perdait la cascade et le rembourrage restait à 14 px — mesuré, le nom
+   japonais arrivait à 361 px et le signet occupait 350 à 375. */
+li.fiche > button.entete { padding-right: 36px; }
+
+@media (min-width: 760px) {
+  .accueil { max-width: 700px; margin: 0 auto; }
+}
+
+/* En-tête d'un panneau sans onglet visible — « Vidéos à identifier ». Sans le
+   retour, on entre dans ce panneau et plus aucun onglet n'est marqué actif :
+   on y serait enfermé. */
+.pane-tete {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--fond-carte);
+  border-bottom: 1px solid var(--trait);
+}
+.pane-tete h2 {
+  margin: 0; font-family: var(--serif); font-size: 16px; font-weight: 600;
+}
+.retour {
+  border: 1px solid var(--trait-fort); background: var(--fond);
+  border-radius: 999px; padding: 7px 12px; font-size: 13px;
+  color: var(--texte-doux); cursor: pointer; white-space: nowrap;
+}
+.retour:active { background: var(--fond-doux); }
+
+/* Deux liens au pied de l'accueil : ils se rangent l'un sous l'autre dès que
+   la largeur ne suffit plus, plutôt que de se serrer. */
+.accueil-pied { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center; }
+
+/* ---------- la constellation ----------------------------------------------
+ *
+ * Les 409 adresses situées, posées sur la courbure de la Terre. C'est le seul
+ * endroit du carnet qui hausse la voix, et c'est la donnée elle-même qui le
+ * fait — pas un décor japonisant plaqué par-dessus.
+ *
+ * Aucune couleur nouvelle : encre sur ivoire, vermillon pour ce qu'on a gardé.
+ * Le fond noir et le point cyan auraient rangé ce carnet parmi les tableaux de
+ * bord ; on reste sur du papier.
+ */
+/* ---------- le ciel ------------------------------------------------------
+ *
+ * L'endroit, et le seul, où le carnet hausse la voix.
+ *
+ * Il ouvrait sur des points gris posés sur l'ivoire de la page : 409 adresses
+ * qui ressemblaient à de la poussière. Une constellation demande une nuit.
+ * Le ciel se donne donc son propre fond — indigo 紺色, la teinte des noren et
+ * des tissus teints à l'indigo — et redéfinit pour lui seul les trois
+ * variables que le dessin consulte. Aucune couleur n'est écrite dans le JS.
+ *
+ * L'aurore vermillon n'ajoute pas une couleur au carnet : c'est le rouge du
+ * sceau, déjà là, posé au ras de l'horizon.
+ */
+/* ---------- la nuit ------------------------------------------------------
+ *
+ * L'accueil entier est un ciel, et non plus une vignette de ciel posée sur du
+ * papier. C'est ce que le carnet raconte : on part, il fait encore nuit, le
+ * soleil se lève sur le Japon. Le papier ivoire reste ce qu'il a toujours
+ * été — la matière des trois autres onglets, ceux qu'on lit dans la rue en
+ * plein jour. **L'accueil est la vitrine, les autres onglets sont l'outil.**
+ *
+ * Tout bascule par les variables, sans qu'une seule règle de l'accueil soit
+ * réécrite : c'est le bénéfice d'une feuille où aucune couleur n'était en dur.
+ */
+/* ---------- LE THÈME, ET IL EST UNIQUE ----------------------------------
+ *
+ * Le carnet était ivoire, avec un thème sombre en option. Il est désormais
+ * nocturne de bout en bout : un seul ciel derrière tout le site, et chaque
+ * surface le laisse transparaître. Le papier ne revient pas, même quand le
+ * téléphone est réglé en clair — c'est assumé, et c'est pour cela que les
+ * valeurs sont posées ici, après le bloc `prefers-color-scheme`, qu'elles
+ * écrasent volontairement.
+ *
+ * **Le levier est dans les trois variables de fond.** Toutes les surfaces du
+ * carnet — l'en-tête, les onglets, les filtres, les fiches, les conseils, le
+ * pied — passent par elles. Les rendre translucides fait passer le ciel à
+ * travers tout le site d'un seul geste, sans toucher une seule de leurs
+ * règles.
+ */
+:root {
+  --fond: transparent;                        /* le ciel passe au travers */
+  --fond-carte: oklch(0.185 0.038 270 / .74); /* les surfaces qui portent du texte */
+  --fond-doux: oklch(0.275 0.046 268 / .82);  /* les creux : puces, jauges */
+  --trait: oklch(1 0 0 / .11);
+  --trait-fort: oklch(1 0 0 / .24);
+  --texte: oklch(0.96 0.010 88);
+  --texte-doux: oklch(0.815 0.020 84);
+  --texte-faible: oklch(0.695 0.022 80);
+  /* Le vermillon du sceau, remonté en clarté : sur l'indigo, la version
+     imprimée tombe à 2,8:1 et disparaît. */
+  --accent: oklch(0.72 0.160 35);
+  --accent-doux: oklch(0.34 0.075 32);
+  --accent-fonce: oklch(0.78 0.150 36);
+  --additif: 1;
+}
+
+/* L'aurore est posée une seule fois, derrière la page entière, et ne défile
+   pas : c'est le ciel, il ne bouge pas quand on tourne les pages.
+   Elle descend sous le contenu par un `z-index` négatif, et non en remontant
+   tout le reste — première version essayée, qui écrasait le `position: sticky`
+   du pied de page et faisait déborder la page de trois pixels. On ne touche
+   pas au positionnement d'éléments qui ont le leur. */
+body > .aurore {
+  position: fixed; inset: 0; z-index: -1;
+  width: 100%; height: 100%; pointer-events: none;
+}
+
+
+
+/* Le voile sous les blocs de texte. Mesuré avant de l'écrire : par-dessus le
+   disque solaire, le texte faible tombait à 3,35:1 — sous le seuil de 4,5.
+   **Un contraste ne peut pas dépendre d'un fond qui bouge.**
+   Ce n'est pas une carte : ni bord, ni ombre, ni coin arrondi, et les filets
+   continuent de séparer les sections comme avant. C'est un assombrissement,
+   et il ne se voit que là où le soleil passe derrière.
+
+   🔴 **Cette règle avait disparu du fichier — seul son commentaire restait.**
+   Constaté le 17/09/2026 en remesurant : sur le point le plus clair du ciel
+   (rgb 160, 66, 38), le texte faible tombait à **2,76:1** et le texte doux à
+   3,59:1. Le commentaire promettait une protection que le carnet n'avait plus.
+
+   Le calcul qui fixe l'opacité, pour qu'on puisse le refaire : le ciel culmine
+   à une luminance de 0,115 ; le texte faible vaut 0,405 ; atteindre 4,5:1
+   demande de ramener le fond sous 0,051. Un voile de nuit à 70 % y arrive avec
+   un peu de marge — mesuré après coup à 4,7:1. Le ciel, lui, reste entier là
+   où il doit l'être : la constellation de l'accueil, la carte, le plein écran.
+
+   `.depart` en est exclu, et c'est tout l'objet : c'est la seule zone où le
+   ciel EST le contenu. */
+.accueil > .bloc,
+#avantDePartir > .bloc,
+.conseils-liste,
+.pane .liste,
+.pane .compte,
+.pane .grille,
+.pane .vide {
+  background: oklch(0.16 0.032 270 / .70);
+}
+/* Le bas de la dernière section : sans lui, le voile s'arrête net au milieu
+   du défilement et l'on voit une couture horizontale. */
+.accueil { padding-bottom: 0; }
+.accueil > .accueil-pied { background: oklch(0.16 0.032 270 / .70); padding-bottom: 40px; }
+
+
+/* La nuit peinte, commune au fond de l'accueil et au plein écran. La vignette
+   du ciel, elle, n'a plus de fond propre : elle donnerait une boîte dans la
+   boîte, et c'est précisément ce qu'on vient de supprimer. */
+body, .grand-ciel {
+  background:
+    radial-gradient(120% 78% at 50% 108%,
+      oklch(0.44 0.115 38 / .40) 0%,
+      oklch(0.34 0.075 30 / .16) 34%,
+      transparent 62%),
+    radial-gradient(90% 62% at 18% 8%,
+      oklch(0.40 0.075 262 / .55) 0%, transparent 60%),
+    linear-gradient(176deg,
+      oklch(0.23 0.052 268) 0%,
+      oklch(0.17 0.040 272) 52%,
+      oklch(0.13 0.028 274) 100%);
+
+  /* Ce que le dessin lira — voir constellation.js, `getComputedStyle(this.toile)`.
+     `--additif` commande le mode de fusion : sur une nuit, les points qui se
+     superposent doivent s'ajouter en lumière, pas se couvrir. */
+  --texte: oklch(0.96 0.010 88);
+  --texte-faible: oklch(0.74 0.022 84);
+  --fond-carte: oklch(0.19 0.040 270);
+  --additif: 1;
+  color: oklch(0.96 0.010 88);
+}
+
+/* La constellation flotte maintenant dans le ciel de l'accueil : pas de fond,
+   pas de bord, pas de coin arrondi. Elle est dedans, elle n'est plus posée
+   dessus. */
+/* Le ciel prend maintenant presque tout l'écran d'ouverture. Un ami de Paco,
+   à qui l'on avait montré le carnet, n'y comprenait rien : à 300 px de haut la
+   nuée était un ornement en haut de page. Il lui faut la place d'une carte
+   pour se lire comme une carte.
+   `dvh` et non `vh` : sur iOS la barre d'adresse se rétracte au défilement, et
+   une hauteur figée laisserait le bas du ciel sous le bord de l'écran.
+   Le compte à rebours passe sous la ligne de flottaison — c'est assumé : il
+   reste à un geste, et ce qu'on doit voir en ouvrant, c'est le voyage. */
+.ciel {
+  position: relative;
+  /* En hauteur d'écran, et non en largeur : borner par `vw` ramenait le ciel
+     à 58 % de l'écran sur un téléphone étroit, ce qui n'était pas le sujet.
+     82 % de la hauteur visible, c'est tout l'espace sous les onglets. */
+  height: clamp(420px, 82dvh, 900px);
+  margin: 2px -18px 10px;      /* annule le padding de `.depart` */
+  touch-action: pan-y;        /* le doigt fait défiler la page verticalement,
+                                 et tourne la constellation horizontalement */
+  background: transparent;
+}
+
+/* L'aurore — le shader de `js/aurore.js`, glissé sous le dessin.
+   Le dégradé défini plus haut reste dessous : c'est lui qu'on voit si WebGL
+   manque, ou pendant les quelques images qui précèdent le premier rendu. */
+.grand-ciel .aurore {
+  position: absolute; inset: 0; z-index: 0;
+  display: block; width: 100%; height: 100%;
+  pointer-events: none;
+}
+/* Le shader arrive sur la première image, pas progressivement : sans ce
+   fondu, on voit le dégradé CSS sauter à l'aurore. Les deux ciels le
+   partagent — celui du fond comme celui du plein écran. */
+body > .aurore, .grand-ciel .aurore { animation: aurore-entre .9s ease both; }
+@keyframes aurore-entre { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  body > .aurore, .grand-ciel .aurore { animation: none; }
+}
+
+/* Un élément positionné passe devant ceux qui ne le sont pas, quel que soit
+   l'ordre du document : sans cette ligne, l'aurore du grand format recouvrait
+   la constellation, les puces et le bouton de fermeture — un écran bleu vide.
+   Tous les enfants du panneau remontent donc au-dessus d'elle. */
+.grand-ciel > *:not(.aurore) { position: relative; z-index: 1; }
+/* Le canvas et l'invitation passent au-dessus du fond et du grain : sans
+   `z-index`, les deux pseudo-éléments en position absolue recouvrent le
+   dessin et le ciel paraît vide. */
+.ciel canvas {
+  display: block; width: 100%; height: 100%;
+  cursor: grab; outline-offset: -2px;
+  position: relative; z-index: 1;
+}
+.ciel .ciel-aide { position: relative; z-index: 2; }
+.ciel canvas:active { cursor: grabbing; }
+
+/* L'invitation à toucher. Elle ne paraît qu'au repos et s'efface au premier
+   geste : une aide qui reste est un aveu que le geste n'est pas devinable. */
+.ciel-aide {
+  position: absolute; left: 0; right: 0; bottom: 4px;
+  margin: 0; text-align: center;
+  font-size: 11.5px; color: var(--texte-faible);
+  opacity: 0; transition: opacity .5s ease;
+  pointer-events: none;
+}
+.ciel-aide[data-visible] { opacity: .75; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ciel-aide { transition: none; }
+}
+
+/* Le choix de la ville, sous la constellation. Les mêmes puces que les filtres
+   du carnet : un geste appris une fois sert partout. */
+/* Les trois villes tiennent sur une ligne : à 375 px, « 東京 Tokyo 263 » trois
+   fois débordait et passait à la ligne, ce qui déséquilibrait tout le bloc.
+   Le kanji porte l'identité, le nombre l'information ; le nom latin est ce
+   qu'on peut retirer — il est déjà partout ailleurs dans le carnet. */
+.ciel-cadre { position: relative; margin-bottom: 10px; }
+
+/* La légende. Deux lignes, discrètes, sous le ciel — elles disent ce que
+   montre le dessin. La seconde passe à la ligne sur les petits écrans : la
+   première suffit à comprendre, la seconde explique le relief. */
+.ciel-legende {
+  margin: 0 0 4px; text-align: center;
+  font-size: 12.5px; line-height: 1.5; color: var(--texte-faible);
+  text-wrap: pretty;
+}
+.ciel-legende span { display: block; }
+
+/* Le sélecteur flotte au bas du ciel, en verre dépoli. C'est le seul endroit
+   du carnet qui en porte : le verre n'a de sens que posé sur quelque chose
+   qu'il laisse deviner — sur du papier uni, il ne montre rien et ne fait que
+   ralentir l'affichage. */
+/* En haut, et pas en bas : le soleil se lève au ras de l'horizon, et trois
+   pastilles posées dessus rendaient 京都 illisible. Le haut du ciel est la
+   seule zone franchement sombre — c'est là que le verre clair se lit le
+   mieux, et c'est là que le dessin n'a rien à montrer. */
+.ciel-villes {
+  position: absolute; left: 0; right: 0; top: 12px; z-index: 3;
+  justify-content: center; gap: 6px; margin: 0;
+}
+.ciel-villes .puce {
+  font-size: 12.5px; padding: 6px 12px;
+  background: oklch(0.99 0 0 / .10);
+  border-color: oklch(0.99 0 0 / .22);
+  color: oklch(0.97 0.008 88);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+          backdrop-filter: blur(14px) saturate(160%);
+  /* Le filet clair en haut et l'ombre portée en bas : c'est ce qui fait lire
+     une lame de verre plutôt qu'un aplat translucide. */
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / .20), 0 2px 10px oklch(0 0 0 / .28);
+  transition: background .18s ease, border-color .18s ease;
+}
+.ciel-villes .puce[aria-pressed="true"] {
+  background: oklch(0.99 0 0 / .90);
+  border-color: oklch(0.99 0 0 / .95);
+  color: oklch(0.20 0.030 270); font-weight: 500;
+}
+.ciel-villes .puce .k { font-size: 14px; margin-right: 5px; }
+.ciel-villes .puce .n { opacity: .72; }
+
+/* Sans `backdrop-filter`, un fond à 10 % d'opacité rendrait le texte
+   illisible sur les zones claires du ciel : on referme alors sur un aplat
+   sombre franc. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ciel-villes .puce { background: oklch(0.22 0.040 270 / .82); }
+}
+
+/* ---------- la constellation en grand --------------------------------------
+ *
+ * 290 px ne suffisent pas à 263 adresses : les amas s'y confondent et les
+ * quartiers n'ont pas la place d'être nommés. En grand, la nuée devient une
+ * carte où l'on se repère.
+ */
+.ciel-plus { margin: -8px 0 14px; text-align: center; }
+
+.grand-ciel {
+  position: fixed; inset: 0; z-index: 90;
+  /* Le fond et la couleur viennent de la règle « .ciel, .grand-ciel » plus
+     haut : la nuit est commune aux deux tailles. Les redéclarer ici les
+     écraserait — la feuille se lit de haut en bas — et le dessin, qui passe
+     en fusion additive, deviendrait invisible sur du papier clair. */
+  display: flex; flex-direction: column;
+  padding: calc(10px + env(safe-area-inset-top)) 12px
+           calc(12px + env(safe-area-inset-bottom));
+}
+.grand-ciel[hidden] { display: none; }
+
+.gc-tete {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+}
+.gc-tete .puces { flex: 1 1 auto; justify-content: flex-start; gap: 6px; }
+.gc-tete .puce { font-size: 12.5px; padding: 5px 11px; }
+.gc-tete .puce .k { font-size: 14px; margin-right: 5px; }
+.gc-fermer {
+  flex: 0 0 auto; position: relative;
+  border: 1px solid var(--trait-fort); background: var(--fond-carte);
+  color: var(--texte); width: 34px; height: 34px; border-radius: 50%;
+  font-size: 17px; line-height: 1; cursor: pointer;
+}
+.gc-fermer::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%);
+}
+
+/* La toile prend tout ce qui reste : c'est le sujet de cet écran. */
+#gcToile {
+  flex: 1 1 auto; min-height: 0; width: 100%; display: block;
+  cursor: grab; touch-action: none; outline-offset: -2px;
+}
+#gcToile:active { cursor: grabbing; }
+
+.gc-pied {
+  flex: 0 0 auto; margin: 6px 0 0; text-align: center;
+  font-size: 12px; line-height: 1.45; color: var(--texte-faible);
+  max-width: 44ch; margin-inline: auto;
+}
+
+/* ---------- ce qui a quitté les attributs `style` ------------------------
+ *
+ * Trois déclarations vivaient dans la page et dans `app.js`, écrites à la
+ * volée dans des attributs `style=`. Elles obligeaient la politique de
+ * sécurité à autoriser les styles en ligne — c'est-à-dire à laisser passer
+ * aussi ceux qu'une donnée mal filtrée y aurait glissés. Elles sont ici.
+ */
+.puces.espace-dessus { margin-top: 6px; }
+.bloc-note.bloc-note-marge { padding: 14px 16px 0; }
+/* La ligne de situation du tiroir de carte : quartier · ville · genre. */
+.tiroir .situation {
+  color: var(--texte-doux); font-size: 12.5px; margin: 0 0 8px;
+}
+
+/* Le bandeau rouge des erreurs JavaScript. Il n'apparaît que si quelque chose
+   a cassé ; sur un téléphone, c'est le seul endroit où on peut le lire. */
+#erreurJS {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 9999;
+  background: #7f1d1d; color: #fff;
+  font: 12px/1.45 ui-monospace, "SF Mono", Menlo, monospace;
+  padding: 10px 12px; white-space: pre-wrap;
+  max-height: 52%; overflow: auto;
+}
+
+/* Une adresse que le carnet refuse d'ouvrir — voir `Sur.lien`. On montre le
+   texte, jamais le lien : un lien mort qu'on peut cliquer vaut moins que pas
+   de lien du tout. */
+.lien-mort {
+  color: var(--texte-faible); text-decoration: line-through;
+  text-decoration-color: var(--trait-fort);
+}
+
+/* ---------- l'onglet « Utile » ---------------------------------------------
+ *
+ * Même grammaire que l'accueil : des blocs séparés au filet, pas de cartes,
+ * pas d'ombres. La différence tient en une chose — ici tout est fait pour être
+ * lu vite, et parfois montré à quelqu'un d'autre. D'où des chiffres plus gros
+ * qu'ailleurs dans le carnet, et du japonais en grand.
+ */
+
+/* Le kanji des titres. Même rôle que sur les portes de l'accueil : une
+   silhouette qu'on reconnaît avant d'avoir lu. Décoratif pour la synthèse
+   vocale — il double le titre français juste à côté. */
+.bloc h2 .u-jp {
+  font-family: var(--jp); font-size: 13px; font-weight: 400;
+  color: var(--texte-faible); margin-left: 7px;
+}
+
+/* Un champ de saisie du carnet. Le label est au-dessus, jamais en
+   `placeholder` seul : un placeholder disparaît à la première lettre tapée,
+   et avec lui la seule indication de ce qu'on remplit. */
+.u-champ { display: block; margin: 0 0 10px; }
+.u-champ > span {
+  display: block; font-size: 12.5px; color: var(--texte-faible); margin-bottom: 4px;
+}
+.u-champ input, .u-champ textarea, #partTexte {
+  width: 100%; border: 1px solid var(--trait-fort); border-radius: 8px;
+  background: var(--fond-carte); color: var(--texte);
+  padding: 9px 10px; font-size: 15px; font-family: inherit;
+  /* 16 px minimum sur iPhone, sinon Safari agrandit la page à la mise au
+     point du champ et l'on se retrouve à défiler de travers. */
+  line-height: 1.4; resize: vertical;
+}
+.u-champ input:focus, .u-champ textarea:focus, #partTexte:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent;
+}
+.u-champ textarea { font-family: var(--jp); }
+
+/* ---------- la boîte à liens --------------------------------------------- */
+
+/* Une file d'attente, pas une bibliothèque : le lien s'affiche assez pour être
+   reconnu et retiré, jamais assez pour inviter à le lire en entier. Il n'est
+   pas cliquable — personne n'a à ouvrir ce qu'un autre a collé. */
+.liens-liste { list-style: none; margin: 10px 0; padding: 0; }
+.liens-liste li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-top: 1px solid var(--trait);
+}
+.liens-liste li:first-child { border-top: none; }
+.liens-url {
+  flex: 1 1 auto; min-width: 0;
+  font-size: 12.5px; color: var(--texte-faible);
+  overflow-wrap: anywhere;
+}
+.liens-retirer {
+  flex: 0 0 auto;
+  width: 30px; height: 30px; line-height: 1;
+  font-size: 17px; color: var(--texte-faible);
+  background: none; border: 1px solid var(--trait); border-radius: 8px;
+  cursor: pointer;
+}
+.liens-retirer:hover { color: var(--accent); border-color: var(--trait-fort); }
+.liens-retirer:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#blocLiens .u-actions { margin-top: 8px; }
+/* `.bloc-note` monte de 6 px pour se coller sous un titre ; ici l'avis suit des
+   boutons, et cette remontée le faisait chevaucher. Mesuré à 6 px le 18/09. */
+#liensAvis { margin-top: 10px; }
+#blocLiens .bouton[disabled] { opacity: 0.45; cursor: default; }
+.bloc-note.u-ok { color: var(--accent-fonce); }
+
+.u-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.u-actions .bouton { min-height: 40px; }
+
+/* --- les urgences ---
+   Le numéro est l'information ; tout le reste l'explique. Il est donc
+   composé comme un titre, et il se touche : sur un téléphone, un numéro
+   d'urgence doit être à un doigt de distance, pas à recopier. */
+.u-urgences { display: block; }
+.u-urg { padding: 13px 0; border-top: 1px solid var(--trait); }
+.u-urg:first-child { border-top: 0; }
+.u-urg-tete { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.u-num {
+  font-family: var(--serif); font-size: 26px; font-weight: 600;
+  letter-spacing: -.02em; color: var(--texte); text-decoration: none;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+a.u-num { color: var(--accent); text-decoration: underline; text-underline-offset: 4px; }
+.u-urg-titre { font-size: 14px; font-weight: 600; }
+.u-urg-quoi { margin: 6px 0 0; font-size: 13.5px; color: var(--texte-doux); }
+.u-urg-note { margin: 5px 0 0; font-size: 12.5px; color: var(--texte-faible); }
+
+/* --- le convertisseur ---
+   Deux champs et une flèche. On tape d'un côté, l'autre suit. */
+.u-change { display: flex; align-items: flex-end; gap: 10px; }
+.u-conv { flex: 1 1 0; min-width: 0; display: block; }
+.u-conv-eti {
+  display: block; font-size: 12px; color: var(--texte-faible); margin-bottom: 3px;
+}
+.u-conv input {
+  width: 100%; border: 1px solid var(--trait-fort); border-radius: 8px;
+  background: var(--fond-carte); color: var(--texte);
+  padding: 10px; font-size: 20px; font-family: var(--serif);
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+.u-conv input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.u-conv-fleche { padding-bottom: 12px; color: var(--texte-faible); font-size: 15px; }
+.u-regle { margin: 12px 0 0; font-size: 13px; color: var(--texte-doux); }
+.u-regle b { color: var(--texte); }
+
+/* Les repères. C'est ce qu'on regarde vraiment : après deux jours, on ne
+   convertit plus, on reconnaît les paliers. */
+.u-reperes {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+  margin-top: 12px; background: var(--trait);
+  border: 1px solid var(--trait); border-radius: 8px; overflow: hidden;
+}
+.u-rep { background: var(--fond-carte); padding: 8px 6px; text-align: center; }
+.u-rep-y {
+  display: block; font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.u-rep-e {
+  display: block; font-size: 12.5px; color: var(--texte-doux);
+  font-variant-numeric: tabular-nums; margin-top: 1px;
+}
+.u-taux { margin: 12px 0 0; font-size: 12.5px; color: var(--texte-faible); }
+.u-taux input {
+  width: 4.5em; border: 1px solid var(--trait); border-radius: 6px;
+  background: var(--fond-carte); color: var(--texte);
+  padding: 3px 6px; font-size: 13px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.u-taux-date { display: block; margin-top: 3px; }
+
+/* --- les phrases ---
+   Repliées par catégorie : huit groupes ouverts d'un coup, c'est une page
+   qu'on ne parcourt plus. Le premier est ouvert, pour que le geste se
+   comprenne sans explication. */
+.u-groupe { border-top: 1px solid var(--trait); }
+.u-groupe:first-child { border-top: 0; }
+.u-groupe-tete {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 12px 2px; border: 0; background: none; cursor: pointer; text-align: left;
+}
+.u-groupe-jp {
+  flex: 0 0 auto; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--jp); font-size: 15px;
+  border: 1px solid var(--trait-fort); border-radius: 50%;
+}
+.u-groupe-nom { flex: 1 1 auto; font-size: 15px; font-weight: 600; }
+.u-groupe-n {
+  font-size: 12px; color: var(--texte-faible); font-variant-numeric: tabular-nums;
+}
+.u-groupe-corps { display: none; padding-bottom: 8px; }
+.u-groupe[data-ouvert] .u-groupe-corps { display: block; }
+
+/* Une phrase. Le français d'abord — c'est par lui qu'on cherche —, le japonais
+   en grand parce que c'est lui qu'on montre, le romaji en dessous pour ceux
+   qui veulent essayer de le dire. */
+.u-phrase {
+  display: block; width: 100%; text-align: left;
+  border: 0; border-top: 1px solid var(--trait); background: none;
+  padding: 11px 2px 11px 42px; cursor: pointer;
+}
+.u-phrase:active { background: var(--fond-doux); }
+.u-fr { display: block; font-size: 13px; color: var(--texte-doux); }
+.u-jpp {
+  display: block; font-family: var(--jp); font-size: 19px;
+  line-height: 1.4; margin-top: 2px;
+}
+.u-ro { display: block; font-size: 12.5px; color: var(--texte-faible); font-style: italic; }
+.u-phrase .u-note {
+  display: block; font-size: 12.5px; color: var(--texte-doux);
+  margin-top: 5px; padding-left: 10px; border-left: 2px solid var(--trait-fort);
+}
+
+/* --- les heures ---
+   Deux cadrans côte à côte, et l'écart écrit en toutes lettres : c'est
+   l'écart qu'on rate, pas l'heure. */
+.bloc-heure { border-bottom: 0; }
+.u-heures { display: flex; gap: 1px; background: var(--trait);
+  border: 1px solid var(--trait); border-radius: 8px; overflow: hidden; }
+.u-h { flex: 1 1 0; background: var(--fond-carte); padding: 12px 8px; text-align: center; }
+.u-h-ville { display: block; font-size: 12px; color: var(--texte-faible); }
+.u-h-val {
+  display: block; font-family: var(--serif); font-size: 22px; font-weight: 600;
+  font-variant-numeric: tabular-nums; margin-top: 2px;
+}
+.u-h-note { margin: 8px 0 0; font-size: 12.5px; color: var(--texte-faible); text-align: center; }
+
+/* ---------- le programme ---------------------------------------------------
+ *
+ * Une colonne de jours. Le jour d'aujourd'hui est le seul à porter l'accent —
+ * c'est la règle du vermillon : « ici, maintenant », et rien d'autre.
+ */
+.prg-jours { display: block; }
+.prg-jour { padding: 12px 0; border-top: 1px solid var(--trait); }
+.prg-jour:first-child { border-top: 0; }
+.prg-tete { display: flex; align-items: baseline; gap: 8px; }
+.prg-date { font-size: 14px; font-weight: 600; }
+.prg-marque {
+  font-size: 11px; color: var(--accent-fonce); background: var(--accent-doux);
+  padding: 1px 7px; border-radius: 20px;
+}
+.prg-aujourdhui .prg-date { color: var(--accent); }
+.prg-lieux { list-style: none; margin: 6px 0 0; padding: 0; }
+.prg-lieux li { display: flex; align-items: center; gap: 4px; }
+.prg-lieu {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 7px;
+  border: 0; background: none; padding: 7px 0; cursor: pointer;
+  text-align: left; font-size: 14px; color: var(--texte);
+}
+.prg-q { color: var(--texte-faible); font-size: 12.5px; }
+.prg-oter {
+  flex: 0 0 auto; width: 34px; height: 34px; border: 0; background: none;
+  color: var(--texte-faible); font-size: 19px; cursor: pointer; line-height: 1;
+}
+.prg-oter:hover { color: var(--accent); }
+.prg-vide { margin: 4px 0 0; font-size: 12.5px; color: var(--texte-faible); }
+.prg-note { display: block; margin-top: 6px; }
+.prg-note textarea {
+  width: 100%; border: 0; border-left: 2px solid var(--trait);
+  background: none; color: var(--texte-doux);
+  padding: 2px 0 2px 9px; font: inherit; font-size: 13px;
+  resize: none; overflow: hidden; min-height: 24px;
+}
+.prg-note textarea:focus {
+  outline: none; border-left-color: var(--accent); color: var(--texte);
+}
+.prg-pied { margin: 12px 0 0; text-align: center; }
+
+/* Le bouton d'une fiche quand l'adresse est déjà posée quelque part. */
+.bouton.pose { border-color: var(--accent); color: var(--accent-fonce); }
+
+/* ---------- choisir un jour ------------------------------------------------
+ *
+ * Une feuille qui monte du bas — le geste du téléphone. Un `<select>` natif
+ * aurait montré trois lignes sur une roue et n'aurait pas permis de poser une
+ * adresse sur deux jours.
+ */
+.choix-jour {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(8, 8, 12, .62);
+  display: flex; align-items: flex-end;
+}
+.cj-boite {
+  width: 100%; max-height: 78%; display: flex; flex-direction: column;
+  background: var(--fond-carte); border-top: 1px solid var(--trait-fort);
+  border-radius: 14px 14px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: cj-monte .22s ease both;
+}
+@keyframes cj-monte { from { transform: translateY(12%); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .cj-boite { animation: none; } }
+.cj-tete {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 14px 14px 10px; border-bottom: 1px solid var(--trait);
+}
+.cj-titre {
+  flex: 1 1 auto; margin: 0; font-family: var(--serif);
+  font-size: 15px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cj-fermer {
+  flex: 0 0 auto; width: 40px; height: 40px; border: 0; background: none;
+  color: var(--texte-doux); font-size: 24px; cursor: pointer; line-height: 1;
+}
+.cj-jours { flex: 1 1 auto; overflow-y: auto; padding: 4px 8px 14px; }
+.cj-jour {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 12px 8px; border: 0; border-bottom: 1px solid var(--trait);
+  background: none; cursor: pointer; text-align: left; color: var(--texte);
+}
+.cj-n {
+  flex: 0 0 auto; width: 34px; font-size: 12px; color: var(--texte-faible);
+  font-variant-numeric: tabular-nums;
+}
+.cj-date { flex: 1 1 auto; font-size: 15px; }
+.cj-compte { flex: 0 0 auto; font-size: 12px; color: var(--texte-faible); }
+/* Posé : le signet du carnet, en vermillon, comme pour une envie gardée. */
+.cj-jour[aria-pressed="true"] { background: var(--accent-doux); }
+.cj-jour[aria-pressed="true"] .cj-date { color: var(--accent-fonce); font-weight: 600; }
+.cj-jour[aria-pressed="true"]::after {
+  content: "✓"; flex: 0 0 auto; color: var(--accent-fonce); font-size: 15px;
+}
+
+/* La jauge de téléchargement du fond de carte — la même que celle du pied de
+   page, posée dans le corps de l'onglet. */
+.u-jauge {
+  height: 4px; background: var(--fond-doux); border-radius: 2px;
+  overflow: hidden; margin-top: 10px;
+}
+.u-jauge i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+/* ---------- les tailles ---------------------------------------------------
+   Une table, et rien qu'une table : des filets fins, des chiffres alignés, et
+   un défilement horizontal propre si la colonne déborde — jamais la page. */
+.u-taille { margin-top: 16px; }
+.u-taille:first-of-type { margin-top: 10px; }
+.u-taille h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.u-table-boite { overflow-x: auto; }
+.u-table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.u-table th, .u-table td {
+  border: 1px solid var(--trait); padding: 6px 8px; text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.u-table thead th {
+  font-size: 12px; font-weight: 500; color: var(--texte-faible);
+  background: var(--fond-doux);
+}
+.u-table tbody th { font-weight: 600; width: 45%; }
+.u-table tbody td { color: var(--texte-doux); }
+
+/* ---------- la liste d'avant le départ ------------------------------------
+   Des cases qu'on coche, dans l'onglet où on les cherche. Une ligne cochée
+   s'efface sans disparaître : elle doit rester lisible pour qu'on puisse la
+   décocher, et visiblement faite pour qu'on passe à la suivante. */
+.bloc-avant { border-bottom: 1px solid var(--trait); }
+.u-liste-avant { list-style: none; margin: 0; padding: 0; }
+.u-avant { border-top: 1px solid var(--trait); }
+.u-avant:first-child { border-top: 0; }
+.u-avant > button {
+  width: 100%; display: flex; align-items: flex-start; gap: 11px;
+  padding: 11px 2px; border: 0; background: none; cursor: pointer; text-align: left;
+}
+.u-case {
+  flex: 0 0 auto; width: 21px; height: 21px; margin-top: 1px;
+  border: 1.5px solid var(--trait-fort); border-radius: 5px;
+}
+.u-avant.fait .u-case {
+  background: var(--accent); border-color: var(--accent);
+  /* Le signe est dessiné par le fond, pas par un caractère : une coche en
+     texte se décale d'un pixel à chaque police système. */
+  background-image: linear-gradient(45deg, transparent 44%, var(--fond-carte) 44%,
+    var(--fond-carte) 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, var(--fond-carte) 44%,
+    var(--fond-carte) 56%, transparent 56%);
+  background-size: 11px 3px, 7px 3px;
+  background-position: 9px 11px, 4px 12px;
+  background-repeat: no-repeat;
+}
+.u-avant-txt { min-width: 0; }
+.u-avant-quoi { display: block; font-size: 14.5px; font-weight: 600; }
+.u-avant.fait .u-avant-quoi {
+  color: var(--texte-faible); text-decoration: line-through;
+  text-decoration-color: var(--trait-fort);
+}
+.u-avant-note {
+  display: block; font-size: 12.5px; color: var(--texte-doux);
+  margin-top: 3px; line-height: 1.45;
+}
+.u-avant.fait .u-avant-note { color: var(--texte-faible); }
+
+/* La recherche dans les phrases : la même boîte que celle des adresses, un peu
+   resserrée parce qu'elle vit à l'intérieur d'un bloc et non dans une barre. */
+.u-recherche { margin: 0 0 10px; }
+.u-rien { margin: 0 0 10px; font-size: 13px; color: var(--texte-faible); }
+
+/* La version du carnet, au pied de l'accueil. Discrète, mais lisible : c'est
+   elle qui permet de dire « tu regardes une version périmée » sans chercher. */
+.accueil-pied .version {
+  display: block; margin-top: 8px;
+  font-size: 11.5px; color: var(--texte-faible);
+  font-variant-numeric: tabular-nums;
+}

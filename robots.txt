@@ -1,0 +1,4 @@
+# Ce carnet est privé : il est fait pour six personnes qui ont reçu le lien.
+# Rien ici n'a vocation à être indexé.
+User-agent: *
+Disallow: /

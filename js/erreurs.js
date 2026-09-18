@@ -19,7 +19,7 @@
    l'accueil et dans le diagnostic : c'est ce qui permet de dire en une seconde
    « tu regardes une version périmée » au lieu de chercher côté serveur.
    ⚠️ À faire monter en même temps que `VERSION` dans sw.js. */
-window.CARNET_VERSION = "v18 — 18 septembre 2026";
+window.CARNET_VERSION = "v19 — 18 septembre 2026";
 
 (function () {
   "use strict";
@@ -39,11 +39,52 @@ window.CARNET_VERSION = "v18 — 18 septembre 2026";
     d.textContent += texte + "\n";
   }
 
+  /* ⚠️ Le bandeau ne parle que des pannes du carnet.
+   *
+   * Les navigateurs intégrés à Facebook, Instagram et Messenger glissent leur
+   * propre script de mesure dans chaque page qu'ils ouvrent. La
+   * politique de sécurité de la page le refuse — `script-src 'self'`, c'est
+   * exactement son travail —, et l'échec remontait ici : le carnet s'ouvrait
+   * sur un bandeau rouge « Script non chargé : https://connect.facebook.net/… »
+   * alors que rien du carnet n'avait échoué (constaté le 18/09/2026, lien
+   * ouvert depuis une conversation). Même histoire pour une extension de
+   * navigateur ou un antivirus qui injecte du code dans les pages.
+   *
+   * Ce bandeau sert à comprendre une page blanche sur un téléphone, pas à
+   * tenir le journal de ce que les autres tentent d'y mettre : ce qui ne vient
+   * pas de notre propre origine est ignoré en silence. */
+  function deChezNous(url) {
+    if (!url) return false;   /* sans `src` : aucun des nôtres n'est dans ce cas */
+    try {
+      return new URL(url, location.href).origin === location.origin;
+    } catch (erreur) {
+      return false;
+    }
+  }
+
   window.addEventListener("error", function (e) {
-    if (e.target && e.target.tagName === "SCRIPT") {
-      montrer("Script non chargé : " + (e.target.src || "?"));
+    var balise = e.target && e.target.tagName;
+
+    /* Une ressource qui n'a pas pu se charger : l'événement porte l'élément
+       fautif, et rien d'autre — ni message, ni ligne. */
+    if (balise) {
+      /* Une vignette manquante parmi 351 ne casse rien et n'a pas à couvrir
+         l'écran — avant ce tri, elle y écrivait « Erreur : undefined ». */
+      if (balise !== "SCRIPT" && balise !== "LINK") return;
+      var source = e.target.src || e.target.href;
+      if (!deChezNous(source)) return;
+      montrer((balise === "SCRIPT" ? "Script non chargé : "
+                                   : "Feuille de style non chargée : ") +
+              source.split("/").pop());
       return;
     }
+
+    /* Une erreur levée par un script d'une autre origine arrive vidée de sa
+       substance : le navigateur n'en livre que « Script error. », sans fichier
+       ni ligne. Elle ne nous apprend rien et ne nous concerne pas. */
+    if (e.filename && !deChezNous(e.filename)) return;
+    if (!e.filename && /^Script error\.?$/.test(e.message || "")) return;
+
     montrer("Erreur : " + (e.message || e.error) +
             "\n  " + (e.filename || "").split("/").pop() + " ligne " + e.lineno);
   }, true);

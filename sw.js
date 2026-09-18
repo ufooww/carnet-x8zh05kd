@@ -42,6 +42,11 @@
    v13 — 17/09/2026, sûreté (filtres, politique de sécurité), onglet « Utile »,
          plan par jour, partage entre téléphones, cache à l'épreuve des
          portails captifs.
+   v19 — 18/09/2026, le bandeau d'erreurs ne signale plus que les pannes du
+         carnet. Le navigateur intégré de Messenger injecte un script Facebook
+         dans la page, la politique de sécurité le refuse, et le carnet
+         s'ouvrait sur « Script non chargé : connect.facebook.net » — un
+         bandeau rouge sur un site qui marchait.
    v18 — 18/09/2026, audit de publication : les exemples des champs du
          logement ne désignent plus un lieu réel.
    v17 — 18/09/2026, préparation de la publication : `noindex` + robots.txt,
@@ -58,7 +63,7 @@
          téléphone affichait encore la version d'avant le 14/09 : le carnet se
          mettait à jour en silence, et n'utilisait la nouvelle copie qu'au
          rechargement suivant — qui ne venait jamais. */
-var VERSION = "carnet-japon-v18";
+var VERSION = "carnet-japon-v19";
 
 var COQUILLE = [
   "./",

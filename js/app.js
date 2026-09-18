@@ -1606,6 +1606,31 @@
     carte.rendre();
   }
 
+  /* ⚠️ La bascule de secours ne déplace JAMAIS la vue — 18/09/2026.
+   *
+   * `activerEmbarque` cale les bornes sur ce que l'archive couvre — 11 à 15,
+   * agrandi jusqu'à 17 — et ramène le zoom courant dans cet intervalle. C'est
+   * juste quand l'archive est le seul fond possible dès le départ. En secours,
+   * c'est brutal, et Paco l'a vu le jour même : on regarde le Japon entier au
+   * niveau 7, le téléphone perd une seconde de réseau, et **la carte saute
+   * toute seule au niveau 11**. Les butées apparaissent, puis disparaissent au
+   * retour du signal, sans que rien ne l'explique à l'écran. « La map réagit
+   * bizarrement au zoom » : c'était ça.
+   *
+   * Ici on change la source, un point c'est tout. Les bornes restent 3–19, et
+   * le lecteur d'archive gère proprement les deux débordements : sous le niveau
+   * 11 il renvoie `null` — la carte est vide à cet endroit, exactement comme
+   * avant qu'on installe les 108 Mo —, au-dessus de 15 il agrandit la tuile
+   * parente. **Un trou à un niveau de zoom vaut mieux qu'une vue qui bouge
+   * toute seule.** */
+  function passerEnSecours() {
+    if (!carte) return;
+    carte.sourceTuile = sourceEmbarquee;
+    carte._tuiles = {};
+    carte.cTuiles.innerHTML = "";
+    carte.rendre();
+  }
+
   /* ---------- la reprise, et le trou qu'elle bouche -------------------------
    *
    * ⚠️ Jusqu'au 18/09/2026, les 108 Mo installés ne servaient **que dans la
@@ -1645,7 +1670,7 @@
     return reprendreArchives().then(function (dispo) {
       if (!dispo) return false;
       surSecours = true;
-      activerEmbarque();
+      passerEnSecours();
       return true;
     });
   }
@@ -1974,7 +1999,7 @@
            première coupure — c'est très exactement ce qu'on lui a promis. */
         if (surSecours || navigator.onLine === false) {
           surSecours = true;
-          activerEmbarque();
+          passerEnSecours();
         }
         return true;
       });
@@ -2070,6 +2095,13 @@
 
     var enCours = false;
 
+    /* ⚠️ Dépliée, la pilule occupe cent quatre-vingts pixels dans le coin bas
+       droit — là où le pouce se pose pour pincer. Un geste de zoom qui commence
+       dessus est avalé par le bouton, et le zoom ne prend pas. Elle se replie
+       donc au premier contact avec la carte : vue à l'ouverture, hors du chemin
+       dès qu'on manipule. Une fois repliée par un geste, elle le reste. */
+    var plieeParGeste = false;
+
     function refusee() {
       return window.Sur.lire(CLE_PLUS_TARD, function (v) { return v === 1; }, 0) === 1;
     }
@@ -2142,7 +2174,7 @@
         /* Dépliée tant que la question n'a pas été tranchée : c'est une
            invitation, elle doit se lire. Une fois remise à plus tard, elle se
            replie sur son icône — toujours là, sans encombrer. */
-        bouton.classList.toggle("plie", refusee() && !e.installees);
+        bouton.classList.toggle("plie", plieeParGeste || (refusee() && !e.installees));
         bouton.hidden = false;
       });
     }
@@ -2161,6 +2193,15 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && !feuille.hidden) fermerFeuille(true);
     });
+
+    var plan = $("carte");
+    if (plan) {
+      plan.addEventListener("pointerdown", function () {
+        if (plieeParGeste) return;
+        plieeParGeste = true;
+        bouton.classList.add("plie");
+      }, { passive: true });
+    }
 
     rendre();
     /* L'onglet « Utile » peut installer ou libérer de son côté : la pilule se
@@ -2187,12 +2228,26 @@
        était vide à chaque ouverture — le carnet disait « le fond de carte,
        non » à des gens qui l'avaient pourtant installé. */
     function annoncerPerte() {
-      basculerHorsConnexion().then(function (fond) {
-        montrerPied(
-          "Hors connexion. Les " + LIEUX.length + " adresses, les phrases et les " +
-          "numéros restent là" +
-          (fond ? ", et le fond de carte aussi." : " — le fond de carte, non."),
-          { refermable: true, secondes: 8 });
+      /* ⚠️ On vérifie avant de croire à la coupure. `navigator.onLine` bascule
+         pour un simple changement d'antenne ou un passage Wi-Fi → 4G, et le
+         carnet se mettait alors à changer de fond de carte et à annoncer une
+         panne qui n'existait pas. Tant que le serveur de tuiles répond, il ne
+         s'est rien passé : ni message, ni bascule. */
+      reseauRepond().then(function (encoreLa) {
+        if (encoreLa) return;
+        basculerHorsConnexion().then(function (fond) {
+          montrerPied(
+            "Hors connexion. Les " + LIEUX.length + " adresses, les phrases et les " +
+            "numéros restent là" +
+            /* La couverture est dite, parce qu'elle s'aperçoit sinon comme une
+               panne : l'archive va du niveau 11 au niveau 15, donc trop dézoomé
+               l'écran est vide, et zoomé à fond l'image est agrandie. Annoncer
+               « le fond de carte aussi » sans le préciser ferait croire à un
+               bug au premier coup d'œil. */
+            (fond ? ", et le fond de carte aussi — de la ville au quartier."
+                  : " — le fond de carte, non."),
+            { refermable: true, secondes: 8 });
+        });
       });
     }
     window.addEventListener("offline", annoncerPerte);

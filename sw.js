@@ -42,6 +42,12 @@
    v13 — 17/09/2026, sûreté (filtres, politique de sécurité), onglet « Utile »,
          plan par jour, partage entre téléphones, cache à l'épreuve des
          portails captifs.
+   v21 — 18/09/2026, correction de la v20 : la bascule hors connexion ne
+         déplace plus la vue. Elle calait les bornes de zoom sur l'archive et
+         ramenait le zoom dedans — la carte sautait du niveau 7 au niveau 11
+         toute seule à la moindre seconde de réseau perdue. Une coupure n'est
+         plus crue sur parole non plus : on demande une vraie tuile avant de
+         changer quoi que ce soit.
    v20 — 18/09/2026, la carte s'emporte : un bouton la propose sur la carte
          elle-même, et — surtout — les 108 Mo installés resservent enfin. Ils
          ne valaient que pour la session où on les avait pris : rien ne les
@@ -68,7 +74,7 @@
          téléphone affichait encore la version d'avant le 14/09 : le carnet se
          mettait à jour en silence, et n'utilisait la nouvelle copie qu'au
          rechargement suivant — qui ne venait jamais. */
-var VERSION = "carnet-japon-v20";
+var VERSION = "carnet-japon-v21";
 
 var COQUILLE = [
   "./",

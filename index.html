@@ -273,6 +273,40 @@
       les rues. Ensuite la carte s'ouvre instantanément et fonctionne même sans
       réseau.</p>
     </div>
+    <!-- ———— emporter le fond de carte ————————————————————————————————
+         La fonction existe depuis le 17/09, mais elle vivait au fond de
+         l'onglet « Utile », en sixième position, sous les phrases japonaises et
+         les numéros d'urgence : **Paco lui-même ne l'avait jamais vue**
+         (18/09/2026). Une fonction qu'on ne trouve pas n'existe pas. Elle est
+         donc proposée ici, sur la carte, là où la question se pose — et l'état
+         complet (taille occupée, désinstallation) reste dans « Utile ».
+
+         La pilule est dépliée tant que rien n'a été ni installé ni refusé :
+         c'est une invitation, elle doit se lire. Un « Plus tard » la replie en
+         icône seule, toujours accessible, qui n'encombre plus. -->
+    <button type="button" class="emporter" id="emporter" hidden>
+      <span class="emporter-icone" id="emporterIcone" aria-hidden="true"></span>
+      <span class="emporter-mot" id="emporterMot">Carte hors connexion</span>
+      <i class="emporter-jauge" id="emporterJauge" aria-hidden="true"></i>
+    </button>
+
+    <div class="emporter-voile" id="emporterVoile" hidden></div>
+    <section class="emporter-feuille" id="emporterFeuille" role="dialog"
+             aria-modal="true" aria-labelledby="emporterTitre" hidden>
+      <h2 id="emporterTitre">Emporter la carte</h2>
+      <p>Le fond de carte — les rues, les gares, les noms de quartiers — vient
+        d'un serveur japonais. Sans réseau il ne vient pas : les
+        <span id="emporterNb">adresses</span> restent là, mais posées sur du
+        vide.</p>
+      <p><b>108 Mo, une seule fois.</b> À prendre en Wi-Fi avant de partir. La
+        carte bascule ensuite toute seule sur sa copie dès que le réseau manque,
+        du niveau de la ville à celui du quartier.</p>
+      <div class="emporter-actions">
+        <button type="button" class="bouton plein" id="emporterLancer">Télécharger — 108 Mo</button>
+        <button type="button" class="bouton" id="emporterPlusTard">Plus tard</button>
+      </div>
+    </section>
+
     <div class="autour" id="autour">
       <h2>Autour de moi</h2>
       <ol id="autourListe"></ol>

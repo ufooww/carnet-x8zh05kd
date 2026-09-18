@@ -500,9 +500,11 @@
       '<p class="bloc-note" id="carteEtat">Vérification…</p>' +
       '<div class="u-jauge" id="carteJaugeBoite" hidden><i id="carteJauge"></i></div>' +
       '<div class="u-actions" id="carteActions"></div>' +
-      '<p class="u-urg-note">Les 544 adresses, elles, sont consultables sans ' +
-      'réseau dès la première ouverture du carnet. Ce téléchargement ne concerne ' +
-      'que le fond de carte — les rues, les gares, les noms de quartiers.</p>';
+      '<p class="u-urg-note">Les ' +
+      ((global.LIEUX && global.LIEUX.length) || 0) + ' adresses, elles, sont ' +
+      'consultables sans réseau dès la première ouverture du carnet. Ce ' +
+      'téléchargement ne concerne que le fond de carte — les rues, les gares, ' +
+      'les noms de quartiers.</p>';
     hote.appendChild(section);
 
     var etat = $("carteEtat"), actions = $("carteActions"),
@@ -549,7 +551,8 @@
             global.Carnet.installerCarte(function (f) {
               jauge.style.width = Math.round(Math.min(f, 1) * 100) + "%";
             }).then(function () {
-              global.Carnet.dire("Carte installée — elle fonctionne désormais sans réseau.");
+              global.Carnet.dire("Carte installée. Elle prendra le relais toute " +
+                               "seule dès que le réseau manquera.");
               rendre();
             }, function (err) {
               etat.textContent = "Téléchargement impossible : " +

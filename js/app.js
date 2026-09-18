@@ -1592,6 +1592,90 @@
     if (m) m.removeAttribute("data-actif");
   }
 
+  /* L'exact inverse d'`activerEmbarque`, et il doit être complet : laisser
+     `zoomTuilesMax` posé bornerait la carte à ce que l'archive couvrait, alors
+     même qu'on est revenu au fond du réseau. */
+  function activerReseau() {
+    if (!carte) return;
+    carte.sourceTuile = null;
+    carte.zoomMin = 3;
+    carte.zoomMax = 19;
+    carte.zoomTuilesMax = null;
+    carte._tuiles = {};
+    carte.cTuiles.innerHTML = "";
+    carte.rendre();
+  }
+
+  /* ---------- la reprise, et le trou qu'elle bouche -------------------------
+   *
+   * ⚠️ Jusqu'au 18/09/2026, les 108 Mo installés ne servaient **que dans la
+   * session où on les avait téléchargés**. `initFondDeCarte()` est commentée
+   * depuis le 02/09 — Paco voulait d'abord une carte complète et fluide, et il
+   * a raison — mais rien n'avait pris le relais : à l'ouverture suivante,
+   * `archives` repartait vide, la carte redemandait tout au réseau, et les
+   * archives dormaient en base sans que rien ne les rouvre. Le carnet promettait
+   * un mode hors connexion qui ne passait pas la nuit.
+   *
+   * Ceci n'ouvre que ce qui est **déjà en base** : lire l'en-tête et le
+   * répertoire racine d'une archive coûte quelques kilooctets, jamais les 108 Mo,
+   * et rien n'est téléchargé. */
+  function reprendreArchives() {
+    return Promise.all(ARCHIVES.map(function (a) {
+      if (archives[a.nom]) return true;
+      return lireBase(a.nom).then(function (donnee) {
+        if (!donnee) return false;
+        var blob = donnee instanceof Blob ? donnee : new Blob([donnee]);
+        return window.PMTiles.depuisBlob(blob).then(function (arch) {
+          archives[a.nom] = arch;
+          return true;
+        });
+      }).catch(function () { return false; });
+    })).then(function (etats) {
+      return etats.some(Boolean);
+    });
+  }
+
+  /* Vrai tant qu'on affiche la copie locale faute de mieux. Sert à savoir s'il
+     y a lieu de rendre la main au réseau : une archive activée volontairement
+     ne doit pas être défaite par un simple retour de signal. */
+  var surSecours = false;
+
+  function basculerHorsConnexion() {
+    if (surSecours) return Promise.resolve(true);
+    return reprendreArchives().then(function (dispo) {
+      if (!dispo) return false;
+      surSecours = true;
+      activerEmbarque();
+      return true;
+    });
+  }
+
+  /* `navigator.onLine` ment dans un seul sens : il peut annoncer « en ligne »
+     derrière un portail captif d'hôtel qui ne laisse rien passer. On ne le croit
+     donc pas sur parole — on demande une vraie tuile avant de rendre la main au
+     serveur japonais. Une `Image` et non un `fetch` : la politique de sécurité
+     autorise `tile.openstreetmap.jp` en `img-src`, jamais en `connect-src`.
+     C'est la gare de Tokyo au niveau 12. */
+  function reseauRepond() {
+    return new Promise(function (ok) {
+      var img = new Image(), tranche = false;
+      function repondre(v) { if (!tranche) { tranche = true; ok(v); } }
+      img.onload = function () { repondre(true); };
+      img.onerror = function () { repondre(false); };
+      setTimeout(function () { repondre(false); }, 5000);
+      img.src = "https://tile.openstreetmap.jp/12/3638/1612.png?essai=" + Date.now();
+    });
+  }
+
+  function revenirAuReseau() {
+    if (!surSecours) return;
+    reseauRepond().then(function (vraiment) {
+      if (!vraiment || !surSecours) return;
+      surSecours = false;
+      activerReseau();
+    });
+  }
+
   function chargerArchive(a, surProgres) {
     return lireBase(a.nom).then(function (tampon) {
       if (tampon) return tampon;
@@ -1884,7 +1968,14 @@
           });
         });
       }, Promise.resolve()).then(function () {
-        activerEmbarque();
+        /* On n'impose pas la copie locale à quelqu'un qui a du réseau : elle
+           ne couvre que les niveaux 11 à 15 et lui donnerait une carte plus
+           pauvre que celle qu'il regardait. Elle prendra le relais à la
+           première coupure — c'est très exactement ce qu'on lui a promis. */
+        if (surSecours || navigator.onLine === false) {
+          surSecours = true;
+          activerEmbarque();
+        }
         return true;
       });
     },
@@ -1896,15 +1987,8 @@
           // d'interroger des archives qu'on vient d'effacer et n'afficherait
           // plus rien du tout.
           archives = {};
-          if (carte) {
-            carte.sourceTuile = null;
-            carte.zoomMin = 3;
-            carte.zoomMax = 19;
-            carte.zoomTuilesMax = null;
-            carte._tuiles = {};
-            carte.cTuiles.innerHTML = "";
-            carte.rendre();
-          }
+          surSecours = false;
+          activerReseau();
           return true;
         });
     }
@@ -1945,6 +2029,146 @@
   // niveaux fins. Voir README — à reprendre avec une couverture complète.
   // initFondDeCarte();
 
+  /* ---------- emporter la carte, depuis la carte ----------------------------
+   *
+   * Le téléchargement des 108 Mo existait depuis le 17/09 — mais dans l'onglet
+   * « Utile », en sixième position, sous les phrases japonaises et les numéros
+   * d'urgence. Paco ne l'avait jamais vu et a demandé le 18/09 « un bouton ou
+   * une icône qui nous propose de télécharger la carte hors connexion ». Une
+   * fonction qu'on ne trouve pas n'existe pas : elle se propose désormais là où
+   * la question vient, sur la carte.
+   *
+   * Ce bloc ne refait rien — il appelle `Carnet.etatCarte` et
+   * `Carnet.installerCarte`, exactement comme l'onglet « Utile », qui garde la
+   * vue complète : place occupée et désinstallation.
+   *
+   * **Ce qu'il ne fait pas, et c'est délibéré : rien ne se télécharge tout
+   * seul.** 108 Mo, sur un forfait en itinérance, ne se prennent pas par
+   * surprise. Le bouton propose, la feuille dit le prix, Paco décide.
+   */
+  (function () {
+    var bouton = $("emporter");
+    if (!bouton) return;
+
+    var icone = $("emporterIcone"), mot = $("emporterMot"), jauge = $("emporterJauge"),
+        voile = $("emporterVoile"), feuille = $("emporterFeuille"),
+        bLancer = $("emporterLancer"), bPlusTard = $("emporterPlusTard");
+
+    /* Le « plus tard » se retient, sinon la pilule dépliée redemande à chaque
+       ouverture ce à quoi on a déjà répondu. */
+    var CLE_PLUS_TARD = "carnet-japon-carte-plus-tard";
+
+    /* Dessinées ici et non dans `icones.js`, qui est le jeu des catégories du
+       carnet : une flèche pleine qui descend sur un socle, une coche. Formes
+       pleines et non des traits d'un pixel — à dix-sept pixels sur un fond de
+       rues, un contour fin disparaît. */
+    var FLECHE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+      '<path d="M10.4 3h3.2v6.9h3.5L12 16.6 5.9 9.9h4.5V3Z"/>' +
+      '<path d="M4.4 18.4h15.2V21H4.4z"/></svg>';
+    var COCHE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+      '<path d="M9.5 18 3.4 11.9l2.5-2.5 3.6 3.6 8.6-8.6L20.6 7 9.5 18Z"/></svg>';
+
+    var enCours = false;
+
+    function refusee() {
+      return window.Sur.lire(CLE_PLUS_TARD, function (v) { return v === 1; }, 0) === 1;
+    }
+
+    function ouvrirFeuille() {
+      $("emporterNb").textContent = LIEUX.length + " adresses";
+      voile.hidden = false;
+      feuille.hidden = false;
+      bLancer.focus();
+    }
+
+    function fermerFeuille(rendreLeFocus) {
+      voile.hidden = true;
+      feuille.hidden = true;
+      if (rendreLeFocus && !bouton.hidden) bouton.focus();
+    }
+
+    function telecharger() {
+      if (enCours) return;
+      enCours = true;
+      fermerFeuille(false);
+      bouton.classList.remove("plie");
+      bouton.disabled = true;
+      mot.textContent = "Téléchargement… 0 %";
+      jauge.style.width = "0%";
+
+      window.Carnet.installerCarte(function (f) {
+        var pc = Math.round(Math.min(Math.max(f, 0), 1) * 100);
+        jauge.style.width = pc + "%";
+        mot.textContent = "Téléchargement… " + pc + " %";
+      }).then(function () {
+        enCours = false;
+        bouton.disabled = false;
+        bouton.classList.add("fait");
+        icone.innerHTML = COCHE;
+        mot.textContent = "Carte prête sans réseau";
+        jauge.style.width = "100%";
+        window.Carnet.dire("Carte installée. Elle prendra le relais toute seule " +
+                           "dès que le réseau manquera.");
+        /* Puis elle s'efface : ce qui est fait n'a plus à occuper la carte.
+           L'onglet « Utile » garde la place occupée et le bouton pour la
+           libérer. */
+        setTimeout(function () { bouton.hidden = true; }, 6000);
+      }, function (err) {
+        enCours = false;
+        bouton.disabled = false;
+        jauge.style.width = "0%";
+        icone.innerHTML = FLECHE;
+        mot.textContent = "Reprendre le téléchargement";
+        bouton.classList.remove("plie");
+        window.Carnet.dire("Téléchargement interrompu : " +
+          ((err && err.message) || "réseau perdu") +
+          ". À reprendre en Wi-Fi — les mégaoctets déjà passés sont gardés.");
+      });
+    }
+
+    function rendre() {
+      if (!window.Carnet || !window.Carnet.etatCarte) return;
+      window.Carnet.etatCarte().then(function (e) {
+        if (enCours) return;
+        /* Déjà installée : on ne propose plus rien. Un bouton qui reste après
+           coup ne se lit plus comme une offre mais comme un doute. */
+        if (e.total > 0 && e.installees === e.total) {
+          bouton.hidden = true;
+          return;
+        }
+        icone.innerHTML = FLECHE;
+        mot.textContent = e.installees ? "Reprendre le téléchargement"
+                                       : "Carte hors connexion";
+        /* Dépliée tant que la question n'a pas été tranchée : c'est une
+           invitation, elle doit se lire. Une fois remise à plus tard, elle se
+           replie sur son icône — toujours là, sans encombrer. */
+        bouton.classList.toggle("plie", refusee() && !e.installees);
+        bouton.hidden = false;
+      });
+    }
+
+    bouton.addEventListener("click", function () {
+      if (enCours) return;
+      ouvrirFeuille();
+    });
+    bLancer.addEventListener("click", telecharger);
+    bPlusTard.addEventListener("click", function () {
+      window.Sur.ecrire(CLE_PLUS_TARD, 1);
+      fermerFeuille(true);
+      bouton.classList.add("plie");
+    });
+    voile.addEventListener("click", function () { fermerFeuille(true); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !feuille.hidden) fermerFeuille(true);
+    });
+
+    rendre();
+    /* L'onglet « Utile » peut installer ou libérer de son côté : la pilule se
+       remet d'accord avec la base quand on revient sur la carte. */
+    var ongletCarte = $("ongletCarte");
+    if (ongletCarte) ongletCarte.addEventListener("click", rendre);
+  })();
+
   /* ---------- quand le réseau tombe -----------------------------------------
    *
    * Au Japon, ça arrivera : dans le métro entre deux stations, dans un
@@ -1958,15 +2182,24 @@
    * jamais pour promettre le retour.
    */
   (function () {
+    /* La bascule d'abord, l'annonce ensuite : ce qu'on dit dépend de ce qu'on
+       a réussi à rouvrir. Avant le 18/09 on annonçait d'après `archives`, qui
+       était vide à chaque ouverture — le carnet disait « le fond de carte,
+       non » à des gens qui l'avaient pourtant installé. */
     function annoncerPerte() {
-      var carteDispo = Object.keys(archives).length > 0;
-      montrerPied(
-        "Hors connexion. Les " + LIEUX.length + " adresses, les phrases et les " +
-        "numéros restent là" +
-        (carteDispo ? ", et le fond de carte aussi." : " — le fond de carte, non."),
-        { refermable: true, secondes: 8 });
+      basculerHorsConnexion().then(function (fond) {
+        montrerPied(
+          "Hors connexion. Les " + LIEUX.length + " adresses, les phrases et les " +
+          "numéros restent là" +
+          (fond ? ", et le fond de carte aussi." : " — le fond de carte, non."),
+          { refermable: true, secondes: 8 });
+      });
     }
     window.addEventListener("offline", annoncerPerte);
+    /* Le retour du signal ne défait pas la bascule tout seul : `revenirAuReseau`
+       va d'abord chercher une vraie tuile, parce qu'un portail captif suffit à
+       faire dire « en ligne » à un téléphone qui ne passe nulle part. */
+    window.addEventListener("online", revenirAuReseau);
     // Au chargement : si l'on ouvre le carnet déjà hors connexion, il faut le
     // dire tout de suite, sinon la carte vide passe pour une panne.
     if (navigator.onLine === false) { setTimeout(annoncerPerte, 900); }

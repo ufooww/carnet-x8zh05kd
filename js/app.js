@@ -948,7 +948,7 @@
       chiffre.textContent = "C’était bien";
       mot.textContent = "";
     }
-    dates.textContent = "2 → 23 octobre 2026";
+    dates.textContent = "octobre 2026";
     $("departSource").textContent =
       LIEUX.length + " adresses relevées sur 368 vidéos et 200 publications";
   }

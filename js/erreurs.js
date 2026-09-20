@@ -19,7 +19,7 @@
    l'accueil et dans le diagnostic : c'est ce qui permet de dire en une seconde
    « tu regardes une version périmée » au lieu de chercher côté serveur.
    ⚠️ À faire monter en même temps que `VERSION` dans sw.js. */
-window.CARNET_VERSION = "v21 — 18 septembre 2026";
+window.CARNET_VERSION = "v22 — 20 septembre 2026";
 
 (function () {
   "use strict";

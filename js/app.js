@@ -13,6 +13,23 @@
   var LIEUX = window.LIEUX || [], CONSEILS = window.CONSEILS || [],
       ATRANCHER = window.ATRANCHER || [], GALERIE = window.GALERIE || [];
 
+  /* ⚠️ Une ville n'est pas une position — 29/09/2026.
+   *
+   * Faute de quartier, le géocodeur a posé dix-sept adresses au centre de leur
+   * ville : treize sur la gare de Tokyo, deux sur le centre d'Osaka, une sur
+   * la gare de Kyoto. Sur la carte, American Diner ou Nuir Vintage avaient
+   * l'air d'être à Tokyo-eki — et « Itinéraire » y menait tout droit. Leur
+   * adresse le dit pourtant : « quartier à confirmer ». Elles redeviennent
+   * « non situées », comme les 130 autres dont on ne sait pas où elles sont :
+   * le nom se cherche sur place, une fausse épingle égare. */
+  var INCONNU = /(quartier|nom et quartier|ruelle|établissement) à confirmer|communiquée à la réservation|^À géocoder/;
+  LIEUX.forEach(function (p) {
+    if (p.lat != null && p.prec === "quartier" &&
+        (!p.quartier || p.quartier === p.ville) && INCONNU.test(p.adresse || "")) {
+      p.lat = null; p.lon = null; p.prec = "echec";
+    }
+  });
+
   var $ = function (id) { return document.getElementById(id); };
 
   function classeCat(c) {
@@ -473,7 +490,7 @@
           (p.jp ? '<span class="nom-jp">' + echapper(p.jp) + "</span>" : "") +
         "</span>" +
         '<span class="ligne2"><i class="pastille"></i>' + sousLigne + "</span>" +
-        (p.note ? '<span class="extrait">' + echapper(p.note) + "</span>" : "") +
+        (p.note ? '<span class="extrait">' + gras(p.note) + "</span>" : "") +
         (p.alerte ? '<span class="alerte">' + gras(p.alerte) + "</span>" : "") +
         (etiquettes.length ? '<span class="etiquettes">' + etiquettes.join("") + "</span>" : "") +
       "</button>" +
@@ -496,7 +513,7 @@
     var dl = "";
     [["Adresse", p.adresse], ["Horaires", p.horaires], ["Fermé", p.ferme],
      ["Budget", p.budget], ["Accès", p.acces]].forEach(function (c) {
-      if (c[1]) dl += "<dt>" + c[0] + "</dt><dd>" + echapper(c[1]) + "</dd>";
+      if (c[1]) dl += "<dt>" + c[0] + "</dt><dd>" + gras(c[1]) + "</dd>";
     });
     var actions = boutonEnvie(p, true);
     /* Garder une adresse et lui donner un jour sont deux gestes différents :
@@ -504,13 +521,8 @@
        porte le compte quand l'adresse est déjà posée quelque part — sans ce
        retour, on la repose trois fois sans le savoir. */
     if (window.Jours) {
-      var poses = window.Jours.joursDe(p);
-      actions += '<button class="bouton' + (poses.length ? " pose" : "") +
-        '" data-jour>' +
-        (poses.length
-          ? "Posée " + (poses.length > 1 ? "sur " + poses.length + " jours" :
-              "le " + echapper(window.Jours.libelleJour(window.Jours.dateDepuisCle(poses[0]))))
-          : "Poser un jour") + "</button>";
+      actions += '<button class="bouton' + (window.Jours.joursDe(p).length ? " pose" : "") +
+        '" data-jour>' + echapper(etiquetteJour(p)) + "</button>";
     }
     if (p.lat != null) {
       actions += '<button class="bouton plein" data-voir>Voir sur la carte</button>';
@@ -528,12 +540,8 @@
        chaîne ; une latitude n'en désigne qu'une.
        `noreferrer` en plus de `noopener` : sans lui, Google apprend l'adresse
        exacte du carnet à chaque itinéraire demandé. */
-    var dest = p.lat != null
-      ? encodeURIComponent(p.lat + "," + p.lon)
-      : encodeURIComponent((p.jp || p.nom) + " " + (p.ville || ""));
     actions += '<a class="bouton" target="_blank" rel="noopener noreferrer" ' +
-      'href="https://www.google.com/maps/dir/?api=1&destination=' + dest +
-      '">Itinéraire ↗</a>';
+      'href="' + echapper(lienItineraire(p)) + '">Itinéraire ↗</a>';
     /* Envoyer une adresse au groupe. Le carnet ne se partage pas en entier —
        c'est le rôle du bloc « Partager » de l'accueil ; ici c'est une adresse,
        une seule, celle qu'on vient de trouver. */
@@ -557,11 +565,31 @@
        · Dans la liste, rien n'est collé — et mettre « Vidéo 1 » avant
          « Garder » et « Voir sur la carte » reléguerait les gestes derrière
          une simple référence. */
-    var tete = (avecNote && p.note ? '<p class="note">' + echapper(p.note) + "</p>" : "") +
+    var tete = (avecNote && p.note ? '<p class="note">' + gras(p.note) + "</p>" : "") +
                (p.alerte ? '<p class="alerte forte">' + gras(p.alerte) + "</p>" : "") +
                (dl ? "<dl>" + dl + "</dl>" : "");
     var blocActions = '<div class="actions">' + actions + "</div>";
     return tete + (actionsEnDernier ? videos + blocActions : blocActions + videos);
+  }
+
+  function etiquetteJour(p) {
+    var poses = window.Jours.joursDe(p);
+    if (!poses.length) return "Poser un jour";
+    return "Posée " + (poses.length > 1 ? "sur " + poses.length + " jours"
+      : "le " + window.Jours.libelleJour(window.Jours.dateDepuisCle(poses[0])));
+  }
+
+  /* La destination confiée à Google Maps. Des coordonnées seulement quand
+     elles désignent la porte : une adresse posée au centre de son quartier y
+     aurait envoyé à trois cents mètres de la boutique. Le nom, suivi du
+     quartier, trouve l'enseigne — et le quartier départage les chaînes
+     (Okura Umeda n'est pas Okura Shinsaibashi). */
+  function lienItineraire(p) {
+    var dest = (p.lat != null && p.prec !== "quartier")
+      ? p.lat + "," + p.lon
+      : [p.jp || p.nom, p.prec === "quartier" && p.quartier !== p.ville ? p.quartier : "",
+         p.ville].filter(Boolean).join(" ");
+    return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
   }
 
   /* Les alertes portent parfois un <b> voulu par la rédaction. On échappe tout,
@@ -608,10 +636,7 @@
     var ou = [p.quartier, p.ville].filter(Boolean).join(", ");
     var t = bouts.join(" ") + (ou ? " — " + ou : "");
     if (p.adresse) t += "\n" + p.adresse;
-    if (p.lat != null) {
-      t += "\nhttps://www.google.com/maps/dir/?api=1&destination=" +
-           encodeURIComponent(p.lat + "," + p.lon);
-    }
+    t += "\n" + lienItineraire(p);
     return t;
   }
 
@@ -757,8 +782,15 @@
 
   var carte = null;
 
-  function ouvrirTiroir(p) {
+  /* `groupe` : la liste d'où l'on vient, quand la fiche a été ouverte depuis
+     un amas — un lien permet d'y revenir sans refermer le tiroir. */
+  var lieuTiroir = null;      // la fiche affichée dans le tiroir, s'il y en a une
+
+  function ouvrirTiroir(p, groupe) {
+    lieuTiroir = p;
     $("tiroirCorps").innerHTML =
+      (groupe ? '<p class="tiroir-retour"><button type="button" class="lien" id="tiroirRetour">← Les ' +
+                groupe.length + " adresses de cet endroit</button></p>" : "") +
       "<h3>" + echapper(p.nom) + (p.jp ? ' <span class="nom-jp">' + echapper(p.jp) + "</span>" : "") + "</h3>" +
       '<p class="ligne2 situation">' +
       [p.quartier, p.ville, p.genre].filter(Boolean).map(echapper).join(" · ") + "</p>" +
@@ -768,10 +800,50 @@
     var b = $("tiroirCorps").querySelector("[data-voir]");
     if (b) b.remove();
     brancherDetail($("tiroirCorps"), p);
+    if (groupe) {
+      $("tiroirRetour").addEventListener("click", function () { ouvrirGroupe(groupe); });
+    }
+    // Une nouvelle fiche s'ouvre en haut, pas au niveau où l'on avait laissé
+    // défiler la précédente.
+    $("tiroir").scrollTop = 0;
     $("tiroir").setAttribute("data-ouvert", "");
+    if (carte) carte.mettreEnAvantLieu(p);
   }
+
+  /* Les adresses qu'aucun zoom ne sépare — même immeuble, ou posées au centre
+     de leur quartier faute d'adresse exacte. Avant le 29/09/2026 leur disque
+     ne s'ouvrait jamais : 65 adresses étaient inaccessibles depuis la carte.
+     On les donne en liste, dans le tiroir. */
+  function ouvrirGroupe(membres) {
+    lieuTiroir = null;
+    var tries = membres.slice().sort(function (a, b) { return a.nom.localeCompare(b.nom, "fr"); });
+    var approx = tries.filter(function (p) { return p.prec === "quartier"; }).length;
+    var pourquoi = approx === tries.length
+      ? "Posées au centre du quartier : leur adresse exacte n’est pas connue. Le nom se cherche sur place."
+      : approx
+        ? "Au même endroit sur la carte — certaines ne sont placées qu’au quartier."
+        : "Même immeuble ou même rue : la carte ne peut pas les séparer.";
+    $("tiroirCorps").innerHTML =
+      "<h3>" + tries.length + " adresses à cet endroit</h3>" +
+      '<p class="ligne2 situation">' + pourquoi + "</p>" +
+      '<ul class="groupe-liste">' + tries.map(function (p, k) {
+        return '<li><button type="button" class="groupe-lieu ' + classeCat(p.cat) +
+          '" data-k="' + k + '"><i class="pastille"></i><span class="g-txt">' +
+          '<span class="g-nom">' + echapper(p.nom) + "</span>" +
+          '<span class="g-sous">' + [p.genre || p.cat, p.quartier].filter(Boolean)
+            .map(echapper).join(" · ") + "</span></span></button></li>";
+      }).join("") + "</ul>";
+    [].forEach.call($("tiroirCorps").querySelectorAll(".groupe-lieu"), function (b) {
+      b.addEventListener("click", function () { ouvrirTiroir(tries[+b.dataset.k], tries); });
+    });
+    $("tiroir").scrollTop = 0;
+    $("tiroir").setAttribute("data-ouvert", "");
+    if (carte) carte.mettreEnAvantLieu(null);
+  }
+
   $("tiroirFermer").addEventListener("click", function () {
     $("tiroir").removeAttribute("data-ouvert");
+    if (carte) carte.mettreEnAvantLieu(null);
   });
 
   function pointsCarte() {
@@ -810,6 +882,7 @@
       // condition d'affichage.
       zoomMin: 3, zoomMax: 19,
       surClic: function (p) { ouvrirTiroir(p); },
+      surGroupe: function (membres) { ouvrirGroupe(membres); },
       surPosition: function (coords, proches, err) {
         var boite = $("autour");
         /* Un échec de localisation doit se lire À L'ÉCRAN. Le motif n'était
@@ -825,19 +898,20 @@
           } else if (err.code === 1) {
             quoi = "Localisation refusée. À réautoriser dans les réglages du " +
                    "navigateur pour ce site.";
-          } else if (err.code === 2) {
-            quoi = "Position introuvable — pas de signal pour l’instant.";
-          } else if (err.code === 3) {
-            quoi = "La localisation a mis trop de temps. Réessayez à découvert.";
+          } else if (err.code === 2 || err.code === 3) {
+            // La veille continue : voir `suivrePosition`. On ne dit donc pas
+            // « réessayez », puisque le carnet réessaie tout seul.
+            quoi = "Pas encore de position — le téléphone cherche toujours. " +
+                   "À découvert, loin des tours, c’est plus rapide.";
           } else {
             quoi = "Ce navigateur ne sait pas se localiser.";
           }
-          boite.setAttribute("data-actif", "");
+          if (!autourMasque) boite.setAttribute("data-actif", "");
           $("autourListe").innerHTML = '<li class="avis">' + quoi + "</li>";
           return;
         }
         if (!coords) { boite.removeAttribute("data-actif"); return; }
-        boite.setAttribute("data-actif", "");
+        if (!autourMasque) boite.setAttribute("data-actif", "");
         $("autourListe").innerHTML = proches.map(function (e) {
           var d = e.m < 1000 ? Math.round(e.m) + " m"
                              : (e.m / 1000).toFixed(1) + " km";
@@ -866,7 +940,20 @@
     // Exposée pour pouvoir diagnostiquer depuis la console du navigateur —
     // c'est ce qui a permis de trouver le trou de tuiles au-delà du zoom 15.
     window.carteJapon = carte;
+
+    /* Le panneau « Autour de moi » se referme. Le point bleu reste — c'est
+       lui qu'on suit en marchant — mais la liste, qui peut couvrir 40 % de la
+       carte, ne revient qu'au prochain appui sur « ma position ». Sans cette
+       retenue, la position suivante la rouvrait dans la seconde. */
+    $("autourFermer").addEventListener("click", function () {
+      autourMasque = true;
+      $("autour").removeAttribute("data-actif");
+    });
+    $("carte").addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest(".jp-moi")) autourMasque = false;
+    }, true);
   }
+  var autourMasque = false;
 
   function rafraichirCarte() {
     if (!carte) return;
@@ -921,6 +1008,11 @@
    * premier endroit où le kit SaaS s'installe.
    */
 
+  /* Le départ de Paris et l'arrivée au Japon sont deux jours différents : on
+     s'envole le 1er, on se réveille à Tokyo le 2. Le compte à rebours visait
+     l'arrivée en annonçant « avant le départ » — il avait un jour de retard
+     (corrigé le 29/09/2026). Le programme, lui, commence bien le 2. */
+  var DEPART  = new Date(2026, 9, 1);
   var ARRIVEE = new Date(2026, 9, 2);    // vendredi 2 octobre 2026
   var RETOUR  = new Date(2026, 9, 23);
 
@@ -928,7 +1020,7 @@
     var jour = 24 * 3600 * 1000;
     var aujourdhui = new Date();
     aujourdhui.setHours(0, 0, 0, 0);
-    var reste = Math.round((ARRIVEE - aujourdhui) / jour);
+    var reste = Math.round((DEPART - aujourdhui) / jour);
 
     var chiffre = $("departJours"), mot = $("departMot"), dates = $("departDates");
     if (reste > 1) {
@@ -936,13 +1028,13 @@
       mot.textContent = "jours avant le départ";
     } else if (reste === 1) {
       chiffre.textContent = "Demain";
-      mot.textContent = "";
+      mot.textContent = "le départ";
     } else if (reste === 0) {
       chiffre.textContent = "Aujourd’hui";
-      mot.textContent = "";
+      mot.textContent = "le départ";
     } else if (aujourdhui <= RETOUR) {
       // Sur place : le compte à rebours n'a plus de sens, le jour de voyage si.
-      chiffre.textContent = "Jour " + (1 - reste);
+      chiffre.textContent = "Jour " + (Math.round((aujourdhui - ARRIVEE) / jour) + 1);
       mot.textContent = "au Japon";
     } else {
       chiffre.textContent = "C’était bien";
@@ -962,7 +1054,7 @@
         (p.jp ? '<span class="v-jp">' + echapper(p.jp) + "</span>" : "") +
         '<span class="v-lieu2"><i class="pastille ' + classeCat(p.cat) + '"></i>' +
           [p.quartier, p.ville].filter(Boolean).map(echapper).join(" · ") + "</span>" +
-        (p.note ? '<span class="v-note">' + echapper(p.note) + "</span>" : "") +
+        (p.note ? '<span class="v-note">' + gras(p.note) + "</span>" : "") +
       "</button>" +
       boutonEnvie(p, true) +
     "</div>";
@@ -972,6 +1064,10 @@
      elle est, dans la liste sinon — 135 adresses n'ont pas de position. */
   function ouvrirLieu(p) {
     if (p.lat != null) {
+      /* Une envie gardée hier, ouverte aujourd'hui avec « Shopping » coché
+         sur la carte : la vue s'y posait, mais l'épingle n'y était pas — le
+         filtre l'excluait. On rouvre tout plutôt que de montrer un vide. */
+      if (!correspond(p)) toutReafficher();
       allerAOnglet("ongletCarte");
       if (carte) { carte.allerA(p.lat, p.lon, 16); ouvrirTiroir(p); }
       return;
@@ -1027,6 +1123,7 @@
         sous: "Ce que le carnet connaît autour de vous",
         faire: function () {
           allerAOnglet("ongletCarte");
+          autourMasque = false;
           // La carte vient d'apparaître : lui laisser le temps de connaître sa
           // taille avant de la recentrer sur la position.
           setTimeout(function () {
@@ -1793,12 +1890,21 @@
     $("piedFermer").hidden = !o.refermable;
     $("pied").setAttribute("data-actif", "");
 
+    /* Une seule minuterie à la fois. Chaque message posait la sienne sans
+       défaire la précédente : celui du chargement (6 s) effaçait l'annonce
+       « Une nouvelle version est prête » arrivée entre-temps — le seul message
+       qui doive rester jusqu'à ce qu'on le lise. */
+    clearTimeout(minuteurPied);
     if (o.secondes) {
-      setTimeout(function () { effacerPied(); }, o.secondes * 1000);
+      minuteurPied = setTimeout(function () { effacerPied(); }, o.secondes * 1000);
     }
   }
+  var minuteurPied = null;
 
-  function effacerPied() { $("pied").removeAttribute("data-actif"); }
+  function effacerPied() {
+    clearTimeout(minuteurPied);
+    $("pied").removeAttribute("data-actif");
+  }
 
   $("piedFermer").addEventListener("click", effacerPied);
 
@@ -2031,6 +2137,14 @@
         rendreProgramme();
         // Le bouton de la fiche ouverte porte le compte : il doit suivre.
         rafraichirListe();
+        /* Le tiroir de la carte aussi : il gardait « Poser un jour » sur une
+           adresse qu'on venait de poser (29/09/2026). */
+        var bj = lieuTiroir && $("tiroir").hasAttribute("data-ouvert") &&
+                 $("tiroirCorps").querySelector("[data-jour]");
+        if (bj) {
+          bj.textContent = etiquetteJour(lieuTiroir);
+          bj.classList.toggle("pose", window.Jours.joursDe(lieuTiroir).length > 0);
+        }
       }
     });
   }
@@ -2275,6 +2389,7 @@
         { refermable: true });
       return;
     }
+    var majPrete = false;
     function poser() {
       navigator.serviceWorker.register("sw.js").then(function (reg) {
         /* ⚠️ **LE CARNET POUVAIT RESTER BLOQUÉ SUR UNE VERSION ANCIENNE.**
@@ -2306,6 +2421,7 @@
             if (arrivant.state !== "installed") return;
             // Sans contrôleur, c'est la première installation : rien à annoncer.
             if (!navigator.serviceWorker.controller) return;
+            majPrete = true;
             montrerPied("Une nouvelle version du carnet est prête.", {
               bouton: "Recharger",
               refermable: true,
@@ -2314,12 +2430,17 @@
           });
         });
         /* Ce qui tient sans réseau, et ce qui ne tient pas. Le fond de carte
-           vient de CARTO et n'est pas mis en cache — dire « carte hors
-           connexion prête » serait promettre des rues qu'on n'aura pas dans
-           une ruelle de Shimokitazawa. Les 544 adresses, elles, sont là. */
-        montrerPied("Les " + LIEUX.length + " adresses sont consultables sans " +
-                    "réseau. Le fond de carte, lui, demande une connexion.",
-                    { secondes: 6, refermable: true });
+           vient du serveur japonais et ne tient sans réseau que si on l'a
+           emporté — le message le disait « demande une connexion » même à
+           qui avait installé les 108 Mo (corrigé le 29/09). */
+        window.Carnet.etatCarte().then(function (e) {
+          if (majPrete) return;     // l'annonce de mise à jour passe avant
+          var emportee = e.total > 0 && e.installees === e.total;
+          montrerPied("Les " + LIEUX.length + " adresses sont consultables sans réseau." +
+                      (emportee ? " Le fond de carte aussi, de la ville au quartier."
+                                : " Le fond de carte, lui, demande une connexion."),
+                      { secondes: 6, refermable: true });
+        });
       }, function (e) {
         montrerPied("Sans réseau, le carnet ne s’ouvrira pas — la mise en cache a échoué.",
                     { refermable: true, bouton: "Réessayer",

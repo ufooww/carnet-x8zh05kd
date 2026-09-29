@@ -42,6 +42,13 @@
    v13 — 17/09/2026, sûreté (filtres, politique de sécurité), onglet « Utile »,
          plan par jour, partage entre téléphones, cache à l'épreuve des
          portails captifs.
+   v23 — 29/09/2026, audit avant le départ. Les disques qu'aucun zoom ne
+         sépare (même immeuble, centre de quartier) s'ouvrent en liste : 65
+         adresses étaient inaccessibles depuis la carte. Les adresses connues
+         seulement à la ville ne sont plus posées sur la gare centrale. Le GPS
+         ne reste plus allumé en secret après un délai dépassé, et « Près de
+         moi » ne l'éteint plus. Itinéraire par le nom quand la position n'est
+         que celle du quartier.
    v22 — 20/09/2026, audit d'exposition : l'accueil ne donne plus que le mois
          du voyage, et le jeu de données publié est reconstruit sans les fiches
          privées — les adresses de logement restent dans le carnet local.
@@ -81,7 +88,7 @@
          téléphone affichait encore la version d'avant le 14/09 : le carnet se
          mettait à jour en silence, et n'utilisait la nouvelle copie qu'au
          rechargement suivant — qui ne venait jamais. */
-var VERSION = "carnet-japon-v22";
+var VERSION = "carnet-japon-v23";
 
 var COQUILLE = [
   "./",

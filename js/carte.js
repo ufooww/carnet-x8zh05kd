@@ -63,6 +63,9 @@
     this.points = [];
     this.surClic = options.surClic || function () {};
     this.surPosition = options.surPosition || function () {};
+    // Un amas que le zoom ne séparera jamais : voir `_inseparable`.
+    this.surGroupe = options.surGroupe || null;
+    this._actif = null;       // le lieu dont la fiche est ouverte
 
     // Deux façons d'obtenir une tuile, et le moteur ignore d'où elles viennent.
     //
@@ -302,6 +305,17 @@
                      (g.membres.length > 6 ? "…" : "");
           el.addEventListener("click", function (ev) {
             ev.stopPropagation();
+            if (self._sansClic) return;
+            /* ⚠️ 29/09/2026 — soixante-cinq adresses étaient inaccessibles
+               depuis la carte. Deux boutiques du même immeuble, ou cinq
+               friperies posées au centre de Koenji faute d'adresse exacte, ne
+               se séparent à aucun zoom : le disque passait de 17 à 19 puis ne
+               faisait plus rien, et leurs fiches ne s'ouvraient jamais. Quand
+               zoomer ne servira à rien, on donne la liste. */
+            if (self.surGroupe && self._inseparable(g.membres)) {
+              self.surGroupe(g.membres);
+              return;
+            }
             self.allerA(g.lat, g.lon, Math.min(self.zoomMax, Math.round(self.z) + 2));
           });
         } else {
@@ -319,8 +333,10 @@
              d'interrogation sur une carte. */
           el.innerHTML = '<span class="jp-pastille">' +
             (window.Icones ? window.Icones.pour(p.cat) : "") + "</span>";
+          if (p === self._actif) el.classList.add("jp-active");
           el.addEventListener("click", function (ev) {
             ev.stopPropagation();
+            if (self._sansClic) return;
             self.mettreEnAvant(g.e.i);
             self.surClic(p, g.e.i);
           });
@@ -361,10 +377,35 @@
   };
 
   Carte.prototype.mettreEnAvant = function (i) {
+    this.mettreEnAvantLieu(this.points[i] || null);
+  };
+
+  /* Par le lieu et non par l'indice : l'épingle est recréée à chaque
+     changement de zoom ou de filtre, et la mise en avant se perdait au premier
+     pincement alors que la fiche restait ouverte. `null` l'éteint. */
+  Carte.prototype.mettreEnAvantLieu = function (p) {
+    this._actif = p || null;
+    var actif = this._actif;
     this._elGroupes.forEach(function (m) {
       if (m.g.type !== "point") return;
-      m.el.classList.toggle("jp-active", m.g.e.i === i);
+      m.el.classList.toggle("jp-active", m.g.e.p === actif);
     });
+  };
+
+  /* Vrai si zoomer ne séparera jamais ces épingles : leur étendue, au zoom
+     le plus fort permis, tient encore dans le rayon de regroupement. C'est le
+     cas des adresses d'un même immeuble et de celles qu'on n'a pu poser qu'au
+     centre de leur quartier. */
+  Carte.prototype._inseparable = function (membres) {
+    if (this.z >= this.zoomMax - 0.01) return true;
+    var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    membres.forEach(function (p) {
+      var X = projX(p.lon), Y = projY(p.lat);
+      if (X < x0) x0 = X; if (X > x1) x1 = X;
+      if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
+    });
+    var echelle = TAILLE * Math.pow(2, this.zoomMax);
+    return Math.hypot((x1 - x0) * echelle, (y1 - y0) * echelle) <= RAYON_GROUPE;
   };
 
   /* ---------- déplacement et zoom -------------------------------------------- */
@@ -456,13 +497,17 @@
         glisse = null;
         return;
       }
-      var p = pos(e);
-      // On mémorise le point géographique saisi : le glissement consiste
-      // ensuite à le ramener sous le doigt. Aucun cumul de deltas, donc aucune
-      // dérive sur un long geste.
-      var g = self.depuisEcran(p.x, p.y);
-      glisse = { lat: g.lat, lon: g.lon, x0: p.x, y0: p.y, bouge: false };
+      self._sansClic = false;
+      saisir(pos(e), !e.touches);
       self.hote.classList.add("jp-glisse");
+    }
+
+    /* On mémorise le point géographique saisi : le glissement consiste
+       ensuite à le ramener sous le doigt. Aucun cumul de deltas, donc aucune
+       dérive sur un long geste. */
+    function saisir(p, souris) {
+      var g = self.depuisEcran(p.x, p.y);
+      glisse = { lat: g.lat, lon: g.lon, x0: p.x, y0: p.y, bouge: false, souris: souris };
     }
 
     function bouge(e) {
@@ -484,7 +529,23 @@
       self.rendre();
     }
 
-    function fin() {
+    function fin(e) {
+      /* Un doigt se lève pendant un pincement : l'autre continue de faire
+         glisser la carte, comme partout ailleurs. Avant le 29/09, la carte se
+         figeait jusqu'à ce qu'on relève aussi le second doigt. */
+      if (pincee && e && e.touches && e.touches.length === 1) {
+        pincee = null;
+        saisir(pos(e), false);
+        return;
+      }
+      /* À la souris, un glissement qui commence sur une épingle la déplace
+         avec la carte : le bouton relâché est encore sous le pointeur, et le
+         navigateur y envoie un clic. Il ouvrait la fiche à la fin de chaque
+         déplacement. Au doigt, le navigateur ne clique pas après un geste. */
+      if (glisse && glisse.souris && glisse.bouge) {
+        self._sansClic = true;
+        setTimeout(function () { self._sansClic = false; }, 0);
+      }
       glisse = null; pincee = null;
       self.hote.classList.remove("jp-glisse");
     }
@@ -522,11 +583,17 @@
       self.suivrePosition();
     });
 
+    /* La hauteur compte autant que la largeur : sur iPhone, la barre de
+       Safari qui se replie agrandit la carte par le bas, et l'on n'en tenait
+       pas compte — une bande restait vide jusqu'au geste suivant. */
     if (global.ResizeObserver) {
-      var derniere = 0;
+      var derniere = "";
       new ResizeObserver(function (entrees) {
-        var l = entrees[0].contentRect.width;
-        if (l > 0 && l !== derniere) { derniere = l; self.rendre(); }
+        var r = entrees[0].contentRect, cle = r.width + "x" + r.height;
+        if (r.width > 0 && r.height > 0 && cle !== derniere) {
+          derniere = cle;
+          self.rendre();
+        }
       }).observe(this.hote);
     }
   };
@@ -607,12 +674,14 @@
       this.surPosition(null, [], { code: -1, message: "contexte non sécurisé" });
       return;
     }
+    b.classList.remove("jp-refuse");
     b.classList.add("jp-attente");
     var premier = true;
 
     this._veille = navigator.geolocation.watchPosition(function (pos) {
-      b.classList.remove("jp-attente");
+      b.classList.remove("jp-attente", "jp-refuse");
       b.classList.add("jp-actif");
+      b.title = "Ma position — toucher de nouveau pour l’arrêter";
       self._position = pos.coords;
       if (premier) {
         premier = false;
@@ -623,15 +692,32 @@
       self.surPosition(pos.coords,
         self.autourDe(pos.coords.latitude, pos.coords.longitude, 12, 3000));
     }, function (err) {
-      b.classList.remove("jp-attente", "jp-actif");
-      b.classList.add("jp-refuse");
-      b.title = err.code === 1
-        ? (window.isSecureContext === false
-            ? "Adresse en http : le navigateur interdit la localisation. " +
-              "Ouvrir le carnet en https."
-            : "Localisation refusée — à réautoriser dans les réglages du navigateur")
-        : "Position introuvable pour l’instant";
-      self._veille = null;
+      /* ⚠️ 29/09/2026 — **un délai dépassé n'arrête pas une veille GPS.** Le
+         navigateur continue de chercher après avoir signalé l'erreur. On
+         oubliait pourtant la veille : le GPS restait allumé sans que plus rien
+         ne puisse l'éteindre — ni le bouton, ni la minuterie de dix minutes —
+         et un second appui en allumait une deuxième. Dans le métro, c'est
+         l'erreur qu'on obtient à chaque fois.
+         Seul un refus met fin à la veille ; le reste est une attente. */
+      if (err.code === 1) {
+        navigator.geolocation.clearWatch(self._veille);
+        clearTimeout(self._minuteurGPS);
+        self._veille = null;
+        b.classList.remove("jp-attente", "jp-actif");
+        b.classList.add("jp-refuse");
+        b.title = window.isSecureContext === false
+          ? "Adresse en http : le navigateur interdit la localisation. " +
+            "Ouvrir le carnet en https."
+          : "Localisation refusée — à réautoriser dans les réglages du navigateur";
+        self.surPosition(null, [], err);
+        return;
+      }
+      b.title = "Position introuvable pour l’instant — la recherche continue";
+      // Déjà une position : on garde la dernière et sa liste plutôt que de
+      // les effacer à chaque tunnel.
+      if (self._position) return;
+      b.classList.remove("jp-actif");
+      b.classList.add("jp-attente");
       self.surPosition(null, [], err);
     }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 });
 
@@ -686,7 +772,18 @@
     cer.style.marginLeft = cer.style.marginTop = (-r) + "px";
   };
 
-  Carte.prototype.maPosition = function () { this.suivrePosition(); };
+  /* « Près de moi », depuis l'accueil : allume la localisation, ou recentre
+     si elle tourne déjà. Elle appelait `suivrePosition`, qui **bascule** — un
+     GPS déjà allumé depuis la carte s'éteignait, et la liste « Autour de moi »
+     disparaissait au moment précis où on la demandait. */
+  Carte.prototype.maPosition = function () {
+    if (this._veille == null) { this.suivrePosition(); return; }
+    var c = this._position;
+    if (c) {
+      this.allerA(c.latitude, c.longitude, Math.max(this.z, 16));
+      this.surPosition(c, this.autourDe(c.latitude, c.longitude, 12, 3000));
+    }
+  };
 
   global.CarteJapon = Carte;
   global.CarteJapon.projeter = { projX: projX, projY: projY,

@@ -636,15 +636,46 @@ body:has(.pied[data-actif]) { --marge-bas: 62px; }
 .tiroir h3 { margin: 0 34px 2px 0; font-size: 17px; font-family: var(--serif); }
 
 /* panneau « autour de moi » */
+/* Le panneau remonte avec le pied de page, comme les boutons de la carte : un
+   message de six secondes le recouvrait par le bas (29/09/2026). */
 .autour {
-  position: absolute; left: 10px; right: 58px; bottom: 26px; z-index: 4;
+  position: absolute; left: 10px; right: 58px; bottom: calc(26px + var(--marge-bas)); z-index: 4;
   background: var(--fond-carte); border: 1px solid var(--trait);
   border-radius: var(--rayon); box-shadow: var(--ombre); padding: 9px 11px;
-  max-height: 40%; overflow-y: auto; display: none;
+  max-height: 40%; overflow-y: auto; display: none; transition: bottom .2s;
 }
 .autour[data-actif] { display: block; }
-.autour h4 { margin: 0 0 6px; font-size: 12px; color: var(--texte-faible);
+/* Le titre est un `h2` depuis toujours ; la règle visait un `h4` qui
+   n'existait pas, et le titre s'affichait au corps d'un titre de page. */
+.autour h2 { margin: 0 30px 6px 0; font-size: 12px; color: var(--texte-faible);
              text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.autour-fermer {
+  position: absolute; top: 5px; right: 5px; width: 26px; height: 26px;
+  border: 0; border-radius: 50%; background: var(--fond-doux); color: var(--texte);
+  font-size: 15px; line-height: 1; cursor: pointer;
+}
+.autour-fermer::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%);
+}
+
+/* Les adresses qu'aucun zoom ne sépare, en liste dans le tiroir. */
+.groupe-liste { list-style: none; margin: 4px -16px 0; padding: 0 0 calc(14px + var(--marge-bas)); }
+.groupe-liste li { border-top: 1px solid var(--trait); }
+.groupe-lieu {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 16px; border: 0; background: none; text-align: left;
+  cursor: pointer; color: var(--texte); font: inherit;
+}
+.groupe-lieu:active { background: var(--fond-doux); }
+.groupe-lieu .pastille {
+  width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--c, var(--trait-fort));
+}
+.groupe-lieu .g-txt { display: flex; flex-direction: column; min-width: 0; }
+.groupe-lieu .g-nom { font-size: 14.5px; font-weight: 500; }
+.groupe-lieu .g-sous { font-size: 12px; color: var(--texte-faible); margin-top: 1px; }
+.tiroir-retour { margin: -6px 0 2px -10px; }
 .autour ol { margin: 0; padding: 0; list-style: none; }
 .autour li { padding: 4px 0; border-top: 1px solid var(--trait); font-size: 13px;
              display: flex; gap: 8px; align-items: baseline; cursor: pointer; }

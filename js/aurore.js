@@ -283,7 +283,17 @@
     var visee = { x: 0.5, y: 0.5, defile: 0 };
     var montre = { x: 0.5, y: 0.5, defile: 0 };
 
+    /* ⚠️ 30/09/2026 — **le ciel tournait derrière la carte.** Posé sur toute
+       la page, il se croyait toujours visible et se redessinait trente fois
+       par seconde pendant qu'on manipulait la carte, qui le recouvre
+       entièrement — et il relisait la mise en page à chaque mouvement du
+       doigt. Sur iPhone, c'était autant de pris à la carte : « pas fluide ».
+       La page dit quand il est caché ; il garde alors sa dernière image. */
+    var enPause = typeof options.enPause === "function" ? options.enPause
+                                                        : function () { return false; };
+
     function surPointeur(ev) {
+      if (enPause()) { return; }
       var r = hote.getBoundingClientRect();
       if (!r.width || !r.height) { return; }
       visee.x = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
@@ -334,7 +344,7 @@
     function dessiner(maintenant) {
       if (!vivant) { return; }
       image = requestAnimationFrame(dessiner);
-      if (!visible) { return; }
+      if (!visible || enPause()) { return; }
       // 30 images par seconde : la moitié du travail, aucune différence à
       // l'œil sur des voiles qui mettent trente secondes à traverser.
       if (maintenant - derniere < 33) { return; }

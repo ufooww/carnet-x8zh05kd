@@ -103,6 +103,7 @@
     var h = this.hote;
     h.classList.add("jp-carte");
     h.innerHTML =
+      '<div class="jp-fond-tuiles"></div>' +
       '<div class="jp-tuiles"></div>' +
       '<div class="jp-epingles"></div>' +
       '<div class="jp-position"></div>' +
@@ -115,6 +116,7 @@
         'target="_blank" rel="noopener">OpenStreetMap</a> &middot; tuiles ' +
         '<a href="https://openstreetmap.jp/" target="_blank" ' +
         'rel="noopener">OSM Japon</a></div>';
+    this.cFond = h.querySelector(".jp-fond-tuiles");
     this.cTuiles = h.querySelector(".jp-tuiles");
     this.cEpingles = h.querySelector(".jp-epingles");
     this.cPosition = h.querySelector(".jp-position");
@@ -151,7 +153,85 @@
     };
   };
 
-  /* ---------- rendu -------------------------------------------------------- */
+  /* ---------- rendu --------------------------------------------------------
+   *
+   * ⚠️ 30/09/2026 — « sur iPhone, la carte n'est vraiment pas fluide ».
+   *
+   * Chaque mouvement du doigt repositionnait chaque tuile et chaque épingle
+   * par `left`/`top`. Le navigateur devait alors tout redessiner — une
+   * quarantaine de tuiles, filtrées en mode sombre, et des épingles ombrées —
+   * à chaque image. Sur un téléphone, c'est plus que ce qu'une image laisse.
+   *
+   * Trois changements, ceux de toutes les cartes fluides :
+   *   1. **Un seul rendu par image.** Le geste note la vue voulue ; le rendu
+   *      part au `requestAnimationFrame` suivant.
+   *   2. **Le fond se déplace d'un bloc.** Entre deux rendus complets, les
+   *      tuiles ne bougent pas les unes par rapport aux autres : on transforme
+   *      leur conteneur — translation, et échelle pendant un pincement —, ce
+   *      que la puce graphique fait seule, sans rien redessiner. Le rendu
+   *      complet ne revient que quand le bord du fond posé approche de l'écran.
+   *   3. **Les épingles glissent sans être redessinées** : `translate3d` au
+   *      lieu de `left`/`top`.
+   *
+   * La précision n'y perd rien : la transformation entre deux vues est exacte,
+   * et elle ne porte que sur des écarts de l'ordre de l'écran. Le défaut de la
+   * version d'avant le 02/09 — un calque grand comme le monde, qui saturait au
+   * zoom 17 — ne peut pas revenir : chaque rendu complet repart de zéro.
+   */
+
+  function transformCSS(t) {
+    return "translate3d(" + t.tx + "px," + t.ty + "px,0) scale(" + t.k + ")";
+  }
+
+  /* Ce qui a été posé pour la vue `a` se retrouve à sa place dans la vue `v`
+     par une échelle k autour de l'origine puis une translation : un point à
+     xa dans l'ancienne vue est à k·xa + tx dans la nouvelle. */
+  Carte.prototype._transformPour = function (a, v) {
+    var k = v.echelle / a.E;
+    return {
+      k: k,
+      tx: v.l / 2 - k * a.l / 2 + (a.cx - v.cx) * v.echelle,
+      ty: v.h / 2 - k * a.h / 2 + (a.cy - v.cy) * v.echelle
+    };
+  };
+
+  /* Pendant un geste : au plus un rendu par image. */
+  Carte.prototype._planifier = function () {
+    var self = this;
+    if (this._prevu) return;
+    this._prevu = requestAnimationFrame(function () {
+      self._prevu = 0;
+      self._suivre();
+    });
+  };
+
+  /* Une image de geste : le fond suit par transformation tant qu'il couvre
+     l'écran, et n'est refait que sinon ; les épingles sont placées. */
+  Carte.prototype._suivre = function () {
+    var v = this._vue();
+    if (!v.l || !v.h) return;
+    if (!this._tuilesSuivent(v)) this._rendreTuiles(v);
+    this._rendreEpingles(v);
+    this._rendrePosition(v);
+  };
+
+  /* Fin de geste : un rendu complet, tout de suite. Il pose la vue exacte,
+     regroupe les épingles au zoom atteint et prend les tuiles du bon niveau. */
+  Carte.prototype._finirGeste = function () {
+    if (this._prevu) { cancelAnimationFrame(this._prevu); this._prevu = 0; }
+    this.rendre();
+  };
+
+  /* Le niveau de tuiles. Pendant un pincement, on garde celui du début tant
+     que l'écart reste raisonnable (−0,5 à +1 niveau) : changer de niveau en
+     plein geste remplaçait toutes les tuiles sous les doigts. */
+  Carte.prototype._niveau = function () {
+    var zr = Math.max(0, Math.round(this.z));
+    if (this._zGel == null) return zr;
+    if (this.z > this._zGel - 0.5 && this.z <= this._zGel + 1) return this._zGel;
+    this._zGel = zr;
+    return zr;
+  };
 
   Carte.prototype.rendre = function () {
     var self = this;
@@ -173,9 +253,62 @@
     this._rendrePosition(v);
   };
 
+  /* Le fond posé couvre-t-il encore l'écran, une fois transformé ? Si oui, on
+     applique la transformation et c'est tout : rien n'est redessiné. */
+  Carte.prototype._tuilesSuivent = function (v) {
+    var a = this._ancre;
+    if (!a || this._niveau() !== this._ztCourant) return false;
+    var t = this._transformPour(a, v), c = a.cov;
+    if (t.k * c.x0 + t.tx > 0 || t.k * c.x1 + t.tx < v.l) return false;
+    if (t.k * c.y0 + t.ty > 0 && !c.haut) return false;
+    if (t.k * c.y1 + t.ty < v.h && !c.bas) return false;
+    this.cTuiles.style.transform = transformCSS(t);
+    this._placerFond(v);
+    return true;
+  };
+
+  /* Changement de niveau : les tuiles de l'ancien restent affichées dessous,
+     à leur place, jusqu'à l'arrivée de celles du nouveau. Sans cela, chaque
+     cran de zoom montrait la carte grise le temps du téléchargement. */
+  Carte.prototype._versFond = function () {
+    var self = this, f = this.cFond;
+    f.innerHTML = "";                // un seul niveau d'avance suffit
+    while (this.cTuiles.firstChild) f.appendChild(this.cTuiles.firstChild);
+    this._ancreFond = this._ancre;
+    this._tuiles = {};
+    /* Filet de sûreté seulement : l'ancien niveau part d'ordinaire dès que le
+       nouveau est arrivé (`_fondPeutPartir`). Dix secondes, parce qu'en 4G
+       dans une gare une tuile peut mettre plusieurs secondes à venir. */
+    clearTimeout(this._minuteurFond);
+    this._minuteurFond = setTimeout(function () { self._viderFond(); }, 10000);
+  };
+
+  Carte.prototype._viderFond = function () {
+    clearTimeout(this._minuteurFond);
+    this.cFond.innerHTML = "";
+    this.cFond.style.transform = "";
+    this._ancreFond = null;
+  };
+
+  Carte.prototype._placerFond = function (v) {
+    if (!this._ancreFond || !this.cFond.firstChild) return;
+    this.cFond.style.transform = transformCSS(this._transformPour(this._ancreFond, v));
+  };
+
+  /* À l'arrivée de chaque tuile : quand toutes celles du niveau courant sont
+     là, l'ancien niveau peut partir. */
+  Carte.prototype._fondPeutPartir = function () {
+    if (!this.cFond.firstChild) return;
+    if (this.cTuiles.querySelector(".jp-tuile:not([data-pret])")) return;
+    this._viderFond();
+  };
+
+  /* Le rendu complet du fond : chaque tuile posée pour la vue courante. Il
+     devient la nouvelle ancre, et le conteneur revient à sa place. */
   Carte.prototype._rendreTuiles = function (v) {
-    var self = this;
-    var zt = Math.max(0, Math.round(this.z));
+    var zt = this._niveau();
+    if (this._ztCourant != null && zt !== this._ztCourant) this._versFond();
+    this._ztCourant = zt;
     var n = Math.pow(2, zt);
     var cote = v.echelle / n;                 // taille écran d'une tuile
 
@@ -212,21 +345,50 @@
     for (var k in this._tuiles) {
       if (!vues[k]) { this._tuiles[k].remove(); delete this._tuiles[k]; }
     }
+    this.cTuiles.style.transform = "";
+    this._ancre = {
+      cx: v.cx, cy: v.cy, E: v.echelle, l: v.l, h: v.h,
+      // Ce que couvrent les tuiles posées, marge comprise, en pixels écran.
+      cov: {
+        x0: (x0 / n - v.cx) * v.echelle + v.l / 2,
+        x1: ((x1 + 1) / n - v.cx) * v.echelle + v.l / 2,
+        y0: (y0 / n - v.cy) * v.echelle + v.h / 2,
+        y1: ((y1 + 1) / n - v.cy) * v.echelle + v.h / 2,
+        haut: y0 === 0, bas: y1 === n - 1
+      }
+    };
+    this._placerFond(v);
   };
 
   Carte.prototype._demanderTuile = function (el, z, x, y) {
     var self = this;
+    function prete() {
+      el.dataset.pret = "1";
+      self._fondPeutPartir();
+    }
     if (!this.sourceTuile) {
-      el.style.backgroundImage = 'url("' + this.gabarit
+      var url = this.gabarit
         .replace("{s}", this.sousDomaines[(x + y) % this.sousDomaines.length])
-        .replace("{z}", z).replace("{x}", x).replace("{y}", y) + '")';
-      el.style.backgroundSize = "100% 100%";
-      el.style.backgroundPosition = "0 0";
+        .replace("{z}", z).replace("{x}", x).replace("{y}", y);
+      /* L'image est chargée à part et posée une fois arrivée : en attendant,
+         la tuile reste transparente et laisse voir l'ancien niveau dessous,
+         plutôt qu'un carré gris. */
+      var im = new Image();
+      im.onload = function () {
+        if (!el.isConnected) return;
+        el.style.backgroundImage = 'url("' + url + '")';
+        el.style.backgroundSize = "100% 100%";
+        el.style.backgroundPosition = "0 0";
+        prete();
+      };
+      im.onerror = function () { if (el.isConnected) prete(); };
+      im.src = url;
       return;
     }
     this.sourceTuile(z, x, y).then(function (r) {
       // L'élément a pu être purgé pendant que la tuile arrivait.
-      if (!el.isConnected || !r) return;
+      if (!el.isConnected) return;
+      if (!r) { prete(); return; }
       el.style.backgroundImage = 'url("' + r.url + '")';
       if (r.dz) {
         // Fragment d'une tuile de `dz` niveaux au-dessus : on affiche la
@@ -249,7 +411,8 @@
         el.style.backgroundSize = "100% 100%";
         el.style.backgroundPosition = "0 0";
       }
-    }, function () {});
+      prete();
+    }, function () { if (el.isConnected) prete(); });
   };
 
   /* ---------- regroupement et épingles -------------------------------------- */
@@ -261,6 +424,10 @@
   Carte.prototype._regrouper = function () {
     var zt = Math.round(this.z * 2) / 2;
     if (this._zGroupes === zt && this._groupes.length) return;
+    /* Pas pendant un pincement : regrouper détruit et recrée toutes les
+       épingles, et le faisait à chaque demi-niveau traversé, en plein geste.
+       On regroupe une fois, au zoom atteint, quand les doigts se lèvent. */
+    if (this._pincee && this._groupes.length) return;
     this._zGroupes = zt;
 
     var echelle = TAILLE * Math.pow(2, zt);
@@ -342,7 +509,9 @@
           });
         }
         self.cEpingles.appendChild(el);
-        self._elGroupes.push({ g: g, el: el });
+        self._elGroupes.push({ g: g, el: el,
+          // Le point d'ancrage : la pointe de la goutte, le centre du disque.
+          ancrage: g.type === "groupe" ? " translate(-50%,-50%)" : " translate(-50%,-100%)" });
       });
     }
 
@@ -350,12 +519,6 @@
     var marge = 80;
     this._elGroupes.forEach(function (m) {
       var e = self.versEcran(m.g.lat, m.g.lon, v);
-      // La position est écrite **dans tous les cas**, y compris pour une
-      // épingle hors champ : sinon elle réapparaît un instant à son ancienne
-      // place avant d'être corrigée, ce qui se voit comme un saut au bord de
-      // l'écran pendant un glissement.
-      m.el.style.left = e.x + "px";
-      m.el.style.top = e.y + "px";
       // Hors champ : on la retire de l'affichage, sans quoi des centaines
       // d'éléments pèsent sur la mise en page à chaque image.
       var dehors = e.x < -marge || e.x > v.l + marge ||
@@ -363,6 +526,15 @@
       if (dehors !== !!m.cache) {
         m.el.style.display = dehors ? "none" : "";
         m.cache = dehors;
+      }
+      /* Seules les épingles affichées sont déplacées : écrire la position des
+         quatre cents à chaque image coûtait plus que tout le reste du rendu
+         (mesuré le 30/09). Une épingle qui revient dans le champ reçoit sa
+         position dans le même passage que son `display`, donc sans jamais
+         réapparaître à son ancienne place. `translate3d` et non `left`/`top` :
+         la puce graphique la déplace sans la redessiner. */
+      if (!dehors) {
+        m.el.style.transform = "translate3d(" + e.x + "px," + e.y + "px,0)" + m.ancrage;
       }
     });
   };
@@ -424,8 +596,14 @@
 
   /** Zoom en gardant fixe le point de l'écran visé. */
   Carte.prototype.zoomerVers = function (px, py, zCible) {
+    if (this._zoomer(px, py, zCible)) this.rendre();
+  };
+
+  /* La même chose sans dessiner : les gestes n'écrivent que la vue voulue,
+     le rendu part à l'image suivante (voir `_planifier`). */
+  Carte.prototype._zoomer = function (px, py, zCible) {
     var v = this._vue();
-    if (!v.l) return;
+    if (!v.l) return false;
     var avant = this.depuisEcran(px, py, v);
     this.z = Math.max(this.zoomMin, Math.min(this.zoomMax, zCible));
     var v2 = this._vue();
@@ -434,7 +612,7 @@
     // le point visé retombe exactement sous le doigt.
     this.lon += avant.lon - apres.lon;
     this.lat = latDeY(projY(this.lat) + (projY(avant.lat) - projY(apres.lat)));
-    this.rendre();
+    return true;
   };
 
   Carte.prototype.cadrer = function (points, marge) {
@@ -495,6 +673,8 @@
         var m = milieu(e);
         pincee = { d: ecart(e), z: self.z, mx: m.x, my: m.y };
         glisse = null;
+        self._pincee = true;
+        self._zGel = self._ztCourant;       // voir `_niveau`
         return;
       }
       self._sansClic = false;
@@ -514,7 +694,8 @@
       if (pincee && e.touches && e.touches.length === 2) {
         e.preventDefault();
         var f = ecart(e) / pincee.d;
-        self.zoomerVers(pincee.mx, pincee.my, pincee.z + Math.log2(f));
+        self._zoomer(pincee.mx, pincee.my, pincee.z + Math.log2(f));
+        self._planifier();
         return;
       }
       if (!glisse) return;
@@ -526,7 +707,7 @@
       // Le centre est celui pour lequel le point saisi retombe sous le doigt.
       self.lon = lonDeX(projX(glisse.lon) - (p.x - v.l / 2) / v.echelle);
       self.lat = latDeY(projY(glisse.lat) - (p.y - v.h / 2) / v.echelle);
-      self.rendre();
+      self._planifier();
     }
 
     function fin(e) {
@@ -535,6 +716,7 @@
          figeait jusqu'à ce qu'on relève aussi le second doigt. */
       if (pincee && e && e.touches && e.touches.length === 1) {
         pincee = null;
+        self._pincee = false; self._zGel = null;
         saisir(pos(e), false);
         return;
       }
@@ -546,8 +728,13 @@
         self._sansClic = true;
         setTimeout(function () { self._sansClic = false; }, 0);
       }
+      // `mouseup` arrive de toute la page : on ne redessine que s'il y avait
+      // bien un geste sur la carte.
+      var geste = !!(glisse || pincee);
       glisse = null; pincee = null;
+      self._pincee = false; self._zGel = null;
       self.hote.classList.remove("jp-glisse");
+      if (geste) self._finirGeste();
     }
 
     this.hote.addEventListener("mousedown", debut);
@@ -562,7 +749,11 @@
       e.preventDefault();
       self._touche = true;
       var p = pos(e);
-      self.zoomerVers(p.x, p.y, self.z - Math.sign(e.deltaY) * 0.5);
+      self._zoomer(p.x, p.y, self.z - Math.sign(e.deltaY) * 0.5);
+      self._planifier();
+      // La molette n'a pas de fin de geste : on la décrète après un silence.
+      clearTimeout(self._finMolette);
+      self._finMolette = setTimeout(function () { self._finirGeste(); }, 150);
     }, { passive: false });
 
     this.hote.addEventListener("dblclick", function (e) {

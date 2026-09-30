@@ -1191,7 +1191,10 @@
          passe les quatre zones qui défilent : celle qui bouge est celle
          qu'on regarde, et c'est elle qui fait monter le soleil. */
       window.Aurore.poser(document.body, {
-        defile: document.querySelectorAll(".pane .defile")
+        defile: document.querySelectorAll(".pane .defile"),
+        // La carte recouvre le ciel entièrement : inutile de le dessiner
+        // dessous, et ce temps revient à la carte (30/09/2026).
+        enPause: function () { return $("paneCarte").hasAttribute("data-actif"); }
       });
       window.Aurore.poser($("grandCiel"), { intensite: 0.88 });
     }

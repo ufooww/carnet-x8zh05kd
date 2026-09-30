@@ -42,6 +42,12 @@
    v13 — 17/09/2026, sûreté (filtres, politique de sécurité), onglet « Utile »,
          plan par jour, partage entre téléphones, cache à l'épreuve des
          portails captifs.
+   v24 — 30/09/2026, la carte fluide sur iPhone. Un seul rendu par image ;
+         le fond se déplace d'un bloc par transformation au lieu d'être
+         redessiné à chaque mouvement ; les épingles glissent par
+         `translate3d` et ne sont plus reconstruites pendant un pincement ;
+         l'ancien niveau de tuiles reste affiché jusqu'à l'arrivée du
+         nouveau. Le ciel animé ne tourne plus derrière la carte.
    v23 — 29/09/2026, audit avant le départ. Les disques qu'aucun zoom ne
          sépare (même immeuble, centre de quartier) s'ouvrent en liste : 65
          adresses étaient inaccessibles depuis la carte. Les adresses connues
@@ -88,7 +94,7 @@
          téléphone affichait encore la version d'avant le 14/09 : le carnet se
          mettait à jour en silence, et n'utilisait la nouvelle copie qu'au
          rechargement suivant — qui ne venait jamais. */
-var VERSION = "carnet-japon-v23";
+var VERSION = "carnet-japon-v24";
 
 var COQUILLE = [
   "./",

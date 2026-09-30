@@ -389,9 +389,16 @@ li.fiche[data-ouvert] .detail { display: block; }
 /* Les trois calques ne sont plus transformés : chaque élément porte sa
    position à l'écran, recalculée à chaque rendu. C'est ce qui garantit que les
    épingles ne peuvent pas dériver par rapport au fond. */
-.jp-tuiles, .jp-epingles, .jp-position { position: absolute; inset: 0; }
+.jp-fond-tuiles, .jp-tuiles, .jp-epingles, .jp-position { position: absolute; inset: 0; }
 .jp-epingles, .jp-position { pointer-events: none; }
 .jp-epingles > * { pointer-events: auto; }
+/* 30/09/2026 — la fluidité sur iPhone. Le fond se déplace d'un bloc, par
+   transformation de son conteneur : la puce graphique le fait seule, sans
+   rien redessiner (voir « rendu » dans carte.js). `jp-fond-tuiles` garde
+   l'ancien niveau affiché dessous pendant que le nouveau arrive. */
+.jp-fond-tuiles, .jp-tuiles { transform-origin: 0 0; will-change: transform; }
+/* Les épingles se placent par `translate3d` depuis le coin de la carte. */
+.jp-epingle, .jp-groupe { left: 0; top: 0; }
 
 .jp-tuile {
   position: absolute; user-select: none;

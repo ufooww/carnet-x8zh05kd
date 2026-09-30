@@ -42,6 +42,12 @@
    v13 — 17/09/2026, sûreté (filtres, politique de sécurité), onglet « Utile »,
          plan par jour, partage entre téléphones, cache à l'épreuve des
          portails captifs.
+   v25 — 30/09/2026, correction de la v24 : sur iPhone, la carte
+         disparaissait au zoom. La v24 agrandissait le fond d'un bloc
+         (`scale`) pendant un pincement, et un calque agrandi au-delà de ce
+         qu'accepte la puce graphique n'est plus affiché. Le zoom reprend la
+         méthode de la v23 ; seule la translation, pendant un glissement, est
+         gardée. Plus d'ancien niveau affiché dessous non plus.
    v24 — 30/09/2026, la carte fluide sur iPhone. Un seul rendu par image ;
          le fond se déplace d'un bloc par transformation au lieu d'être
          redessiné à chaque mouvement ; les épingles glissent par
@@ -94,7 +100,7 @@
          téléphone affichait encore la version d'avant le 14/09 : le carnet se
          mettait à jour en silence, et n'utilisait la nouvelle copie qu'au
          rechargement suivant — qui ne venait jamais. */
-var VERSION = "carnet-japon-v24";
+var VERSION = "carnet-japon-v25";
 
 var COQUILLE = [
   "./",
